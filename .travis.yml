@@ -1,0 +1,9 @@
+language: go
+sudo: required
+
+go:
+  - "1.12"
+  - "master"
+
+script:
+  - env GO111MODULE=on make test
