@@ -54,6 +54,9 @@ type (
 		// Body the request body
 		Body interface{}
 
+		// Concurrency current amount handling request of instance
+		Concurrency uint32
+
 		// Timeout request timeout
 		Timeout time.Duration
 

@@ -69,12 +69,6 @@ func defaultAdapter(config *Config) (resp *Response, err error) {
 	}
 	config.Request = req
 
-	// 设置默认的请求头
-	if req.UserAgent() == "" {
-		req.Header.Set(headerUserAgent, UserAgent)
-	}
-	req.Header.Set(headerAcceptEncoding, defaultAcceptEncoding)
-
 	if config.enableTrace {
 		ctx := config.Context
 		if ctx == nil {
@@ -107,6 +101,14 @@ func defaultAdapter(config *Config) (resp *Response, err error) {
 		for _, value := range values {
 			req.Header.Add(key, value)
 		}
+	}
+
+	// 设置默认的请求头
+	if req.UserAgent() == "" {
+		req.Header.Set(headerUserAgent, UserAgent)
+	}
+	if req.Header.Get(headerAcceptEncoding) == "" {
+		req.Header.Set(headerAcceptEncoding, defaultAcceptEncoding)
 	}
 
 	// 请求前的相关拦截器调用

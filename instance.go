@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 )
 
 type (
@@ -28,15 +29,8 @@ type (
 
 	// Instance instance of axios
 	Instance struct {
-		Config *InstanceConfig
-	}
-	// Response http response
-	Response struct {
-		Data    []byte
-		Status  int
-		Headers http.Header
-		Config  *Config
-		Request *http.Request
+		Config      *InstanceConfig
+		concurrency uint32
 	}
 )
 
@@ -105,6 +99,8 @@ func urlJoin(basicURL, url string) string {
 
 // Request http request
 func (ins *Instance) Request(config *Config) (resp *Response, err error) {
+	config.Concurrency = atomic.AddUint32(&ins.concurrency, 1)
+	defer atomic.AddUint32(&ins.concurrency, ^uint32(0))
 	if config.Headers == nil {
 		config.Headers = make(http.Header)
 	}

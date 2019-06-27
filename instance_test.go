@@ -79,6 +79,7 @@ func TestRequest(t *testing.T) {
 	t.Run("mock adapter", func(t *testing.T) {
 		assert := assert.New(t)
 		mockAdapter := func(config *Config) (resp *Response, err error) {
+			assert.Equal(uint32(1), config.Concurrency)
 			assert.Equal("/users/:type", config.Route)
 			assert.Equal("https://aslant.site/users/me?a=1&category=a&category=b", config.URL)
 			assert.Equal("GET", config.Method)
@@ -101,6 +102,7 @@ func TestRequest(t *testing.T) {
 			Query: query,
 		})
 		assert.Nil(err)
+		assert.Equal(uint32(0), ins.concurrency)
 	})
 
 	t.Run("on error", func(t *testing.T) {

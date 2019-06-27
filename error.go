@@ -22,9 +22,10 @@ import (
 type (
 	// Error error for axios
 	Error struct {
-		Code   int
-		Config *Config
-		Err    error
+		Code    int     `json:"code,omitempty"`
+		Message string  `json:"message,omitempty"`
+		Config  *Config `json:"-"`
+		Err     error   `json:"-"`
 	}
 )
 
@@ -53,8 +54,9 @@ func (e *Error) Format(s fmt.State, verb rune) {
 // CreateError create an error
 func CreateError(err error, config *Config, code int) *Error {
 	return &Error{
-		Code:   code,
-		Config: config,
-		Err:    err,
+		Message: err.Error(),
+		Code:    code,
+		Config:  config,
+		Err:     err,
 	}
 }
