@@ -26,7 +26,7 @@ import (
 
 type (
 	// OnError on error function
-	OnError func(err error, req *http.Request, resp *Response)
+	OnError func(err error, config *Config)
 	// Config http request config
 	Config struct {
 		Request  *http.Request

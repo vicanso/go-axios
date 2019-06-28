@@ -143,7 +143,7 @@ func (ins *Instance) Request(config *Config) (resp *Response, err error) {
 
 	resp, err = adapter(config)
 	if err != nil && config.OnError != nil {
-		config.OnError(err, config.Request, config.Response)
+		config.OnError(err, config)
 	}
 	return
 }

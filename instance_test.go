@@ -124,7 +124,7 @@ func TestRequest(t *testing.T) {
 			Params: map[string]string{
 				"type": "me",
 			},
-			OnError: func(err error, req *http.Request, resp *Response) {
+			OnError: func(err error, config *Config) {
 				assert.Equal(customErr, err)
 				done = true
 			},
