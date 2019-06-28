@@ -1,5 +1,7 @@
 # go-axios
 
+[![Build Status](https://img.shields.io/travis/vicanso/go-axios.svg?label=linux+build)](https://travis-ci.org/vicanso/go-axios)
+
 HTTP client for golang, it derives [axios](https://github.com/axios/axios).
 
 ## API
