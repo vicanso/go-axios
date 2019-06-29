@@ -36,7 +36,7 @@ type (
 	// TransformResponse transform function for http response
 	TransformResponse func(body []byte, headers http.Header) (data []byte, err error)
 	// TransformRequest transform function for http request
-	TransformRequest func(body interface{}, headers http.Header) (data []byte, err error)
+	TransformRequest func(body interface{}, headers http.Header) (data interface{}, err error)
 
 	newReader func(io.Reader) (io.Reader, error)
 )
@@ -77,7 +77,7 @@ func setContentTypeIfUnset(headers http.Header, value string) {
 	}
 }
 
-func convertRequestBody(data interface{}, headers http.Header) (body []byte, err error) {
+func convertRequestBody(data interface{}, headers http.Header) (body interface{}, err error) {
 	switch data.(type) {
 	case []byte:
 		body = data.([]byte)

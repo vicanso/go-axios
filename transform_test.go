@@ -94,7 +94,7 @@ func TestConvertRequestBody(t *testing.T) {
 		header := make(http.Header)
 		body, err := convertRequestBody(data, header)
 		assert.Nil(err)
-		assert.Equal("a=1&a=2&b=3", string(body))
+		assert.Equal("a=1&a=2&b=3", string(body.([]byte)))
 		assert.Equal(contentTypeWWWFormUrlencoded, header.Get(headerContentType))
 	})
 
@@ -108,7 +108,7 @@ func TestConvertRequestBody(t *testing.T) {
 		header := make(http.Header)
 		body, err := convertRequestBody(data, header)
 		assert.Nil(err)
-		assert.Equal(`{"a":1,"b":"2","c":true}`, string(body))
+		assert.Equal(`{"a":1,"b":"2","c":true}`, string(body.([]byte)))
 		assert.Equal(contentTypeJSON, header.Get(headerContentType))
 	})
 

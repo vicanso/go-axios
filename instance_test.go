@@ -40,7 +40,7 @@ func TestMergeConfig(t *testing.T) {
 	insConfig := &InstanceConfig{
 		BaseURL: "https://aslant.site/",
 		TransformRequest: []TransformRequest{
-			func(body interface{}, headers http.Header) (data []byte, err error) {
+			func(body interface{}, headers http.Header) (data interface{}, err error) {
 				return
 			},
 		},

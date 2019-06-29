@@ -117,11 +117,12 @@ func TestAdapter(t *testing.T) {
 			Method: "POST",
 			Body:   "abcd",
 			TransformRequest: []TransformRequest{
-				func(body interface{}, header http.Header) ([]byte, error) {
+				func(body interface{}, header http.Header) (interface{}, error) {
 					return nil, customErr
 				},
 			},
 		}
+
 		_, e := defaultAdapter(config)
 		assert.NotNil(e)
 		err, ok := e.(*Error)
