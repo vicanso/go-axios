@@ -94,16 +94,28 @@ HTTP put request.
 
 HTTP patch request.
 
-## examples
+## Examples
+
+### Request Stats
+Add stats for all request
 
 ```go
 package main
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/vicanso/go-axios"
+)
+
+var (
+	aslant = axios.NewInstance(&axios.InstanceConfig{
+		BaseURL:     "https://aslant.site/",
+		EnableTrace: true,
+		ResponseInterceptors: []axios.ResponseInterceptor{
+			httpStats,
+		},
+	})
 )
 
 func httpStats(resp *axios.Response) (err error) {
@@ -124,17 +136,122 @@ func httpStats(resp *axios.Response) (err error) {
 }
 
 func main() {
-	ins := axios.NewInstance(&axios.InstanceConfig{
-		BaseURL:     "https://www.baidu.com/",
-		Timeout:     time.Second,
-		EnableTrace: true,
+	resp, err := aslant.Get("/")
+	fmt.Println(err)
+	fmt.Println(resp.Status)
+}
+
+```
+
+### Convert Error
+
+Convert response(4xx, 5xx) to an error.
+
+```go
+package main
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/vicanso/go-axios"
+
+	jsoniter "github.com/json-iterator/go"
+)
+
+var (
+	standardJSON = jsoniter.ConfigCompatibleWithStandardLibrary
+)
+var (
+	aslant = axios.NewInstance(&axios.InstanceConfig{
+		BaseURL: "https://ip.aslant.site/",
 		ResponseInterceptors: []axios.ResponseInterceptor{
-			httpStats,
+			convertResponseToError,
 		},
 	})
-	_, err := ins.Get("/")
-	if err != nil {
-		panic(err)
+)
+
+// convertResponseToError convert http response(4xx, 5xx) to error
+func convertResponseToError(resp *axios.Response) (err error) {
+	if resp.Status >= 400 {
+		message := standardJSON.Get(resp.Data, "message").ToString()
+		if message == "" {
+			message = "Unknown Error"
+		}
+		// or you can use custom error
+		err = errors.New(message)
 	}
+	return
+}
+
+func main() {
+	_, err := aslant.Get("/ip-locations/json/123")
+	fmt.Println(err)
+}
+```
+
+### Mock For Test
+
+Mock request for test.
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/vicanso/go-axios"
+)
+
+type (
+	// UserInfo user info
+	UserInfo struct {
+		Account string `json:"account,omitempty"`
+		Name    string `json:"name,omitempty"`
+	}
+)
+
+var (
+	aslant = axios.NewInstance(&axios.InstanceConfig{
+		BaseURL: "https://aslant.site/",
+	})
+)
+
+// getUserInfo get user info from aslant.site
+func getUserInfo() (userInfo *UserInfo, err error) {
+	resp, err := aslant.Get("/users/me")
+	if err != nil {
+		return
+	}
+	userInfo = new(UserInfo)
+	err = resp.JSON(userInfo)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// mockUserInfo mock user info
+func mockUserInfo(data []byte) (done func()) {
+	originalAdapter := aslant.Config.Adapter
+	aslant.Config.Adapter = func(config *axios.Config) (resp *axios.Response, err error) {
+		resp = &axios.Response{
+			Data:   data,
+			Status: 200,
+		}
+		return
+	}
+
+	done = func() {
+		aslant.Config.Adapter = originalAdapter
+	}
+	return
+}
+
+func main() {
+	mockUserInfo([]byte(`{"account":"tree", "name":"tree.xie"}`))
+	userInfo, err := getUserInfo()
+	fmt.Println(err)
+	fmt.Println(userInfo)
 }
 ```
