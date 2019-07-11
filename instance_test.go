@@ -15,6 +15,7 @@
 package axios
 
 import (
+	"bytes"
 	"errors"
 	"net/http"
 	"net/url"
@@ -22,7 +23,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	gock "gopkg.in/h2non/gock.v1"
 )
 
 func TestURLJoin(t *testing.T) {
@@ -75,222 +75,334 @@ func TestMergeConfig(t *testing.T) {
 	assert.Equal(insConfig.ResponseInterceptors, config.ResponseInterceptors)
 }
 
-func TestRequest(t *testing.T) {
-	t.Run("mock adapter", func(t *testing.T) {
-		assert := assert.New(t)
-		mockAdapter := func(config *Config) (resp *Response, err error) {
-			assert.Equal(uint32(1), config.Concurrency)
-			assert.Equal("/users/:type", config.Route)
-			assert.Equal("https://aslant.site/users/me?a=1&category=a&category=b", config.URL)
-			assert.Equal("GET", config.Method)
-			assert.Equal(DefaultTransformResponse, config.TransformResponse)
-			return
-		}
+func TestIsNeedToTransformRequestBody(t *testing.T) {
+	assert := assert.New(t)
 
-		query := make(url.Values)
-		query.Add("category", "a")
-		query.Add("category", "b")
-		ins := NewInstance(&InstanceConfig{
-			BaseURL: "https://aslant.site/",
-			Adapter: mockAdapter,
+	assert.True(isNeedToTransformRequestBody("POST"))
+	assert.True(isNeedToTransformRequestBody("PATCH"))
+	assert.True(isNeedToTransformRequestBody("PUT"))
+	assert.False(isNeedToTransformRequestBody("GET"))
+}
+
+func TestNewRequest(t *testing.T) {
+	t.Run("new get request", func(t *testing.T) {
+		assert := assert.New(t)
+		method := "GET"
+		url := "https://aslant.site/"
+		req, err := newRequest(&Config{
+			URL: url,
 		})
-		_, err := ins.Request(&Config{
-			URL: "/users/:type?a=1",
+		assert.Nil(err)
+		assert.Equal(method, req.Method)
+		assert.Equal(url, req.URL.String())
+	})
+
+	t.Run("request route", func(t *testing.T) {
+		assert := assert.New(t)
+		config := &Config{
+			URL: "https://aslant.site/user/:type",
+		}
+		_, err := newRequest(config)
+		assert.Nil(err)
+		assert.Equal("/user/:type", config.Route)
+	})
+
+	t.Run("request params", func(t *testing.T) {
+		assert := assert.New(t)
+		config := &Config{
+			URL: "https://aslant.site/user/:type",
 			Params: map[string]string{
 				"type": "me",
 			},
+		}
+		_, err := newRequest(config)
+		assert.Nil(err)
+		assert.Equal("https://aslant.site/user/me", config.URL)
+	})
+
+	t.Run("request query", func(t *testing.T) {
+		assert := assert.New(t)
+		query := make(url.Values)
+		query.Add("category", "a")
+		query.Add("category", "b")
+		config := &Config{
+			URL:   "https://aslant.site/",
 			Query: query,
+		}
+		_, err := newRequest(config)
+		assert.Nil(err)
+		assert.Equal("https://aslant.site/?category=a&category=b", config.URL)
+
+		config = &Config{
+			URL:   "https://aslant.site/?type=vip",
+			Query: query,
+		}
+		_, err = newRequest(config)
+		assert.Nil(err)
+		assert.Equal("https://aslant.site/?type=vip&category=a&category=b", config.URL)
+	})
+
+	t.Run("invalid uri error", func(t *testing.T) {
+		assert := assert.New(t)
+		_, err := newRequest(&Config{
+			Method: "测试",
+		})
+		assert.NotNil(`net/http: invalid method "测试"`, err.Error())
+	})
+
+	t.Run("new post request", func(t *testing.T) {
+		assert := assert.New(t)
+		method := "POST"
+		postBody := []byte("abcd")
+		url := "https://aslant.site/"
+		req, err := newRequest(&Config{
+			Method: method,
+			URL:    url,
+			Body:   postBody,
+			TransformRequest: []TransformRequest{
+				func(body interface{}, _ http.Header) (data interface{}, err error) {
+					assert.Equal(postBody, body)
+					return body, nil
+				},
+			},
 		})
 		assert.Nil(err)
-		assert.Equal(uint32(0), ins.concurrency)
+		assert.Equal(method, req.Method)
+		assert.Equal(url, req.URL.String())
+		assert.NotNil(req.Body)
+	})
+}
+
+func TestRequest(t *testing.T) {
+
+	t.Run("requset", func(t *testing.T) {
+		assert := assert.New(t)
+		ins := NewInstance(nil)
+		mockResp := &Response{}
+		method := "GET"
+		query := make(url.Values)
+		query.Add("category", "a")
+		query.Add("category", "b")
+		header := make(http.Header)
+		header.Set("X-Request-ID", "1")
+		conf := &Config{
+			URL:   "https://aslant.site/users/:type",
+			Query: query,
+			Params: map[string]string{
+				"type": "me",
+			},
+			Headers:     header,
+			Timeout:     5 * time.Millisecond,
+			enableTrace: true,
+		}
+
+		conf.Adapter = func(config *Config) (resp *Response, err error) {
+			req := config.Request
+			assert.Equal(method, req.Method)
+			assert.Equal("https://aslant.site/users/me?category=a&category=b", req.URL.String())
+			assert.Equal("/users/:type", config.Route)
+			assert.Equal("1", req.Header.Get("X-Request-ID"))
+			assert.Equal(UserAgent, req.Header.Get(headerUserAgent))
+			assert.Equal(defaultAcceptEncoding, req.Header.Get(headerAcceptEncoding))
+			resp = mockResp
+			return
+		}
+		resp, err := ins.Request(conf)
+		assert.Nil(err)
+		assert.Equal(mockResp, resp)
+	})
+
+	t.Run("request interceptors", func(t *testing.T) {
+		assert := assert.New(t)
+		customErr := errors.New("custom error")
+		ins := NewInstance(&InstanceConfig{
+			BaseURL: "https://aslant.site/",
+			RequestInterceptors: []RequestInterceptor{
+				func(config *Config) (err error) {
+					if config.Route == "/error" {
+						err = customErr
+						return
+					}
+					config.Request.Header.Set("X-Request-ID", "1")
+					return
+				},
+			},
+			Adapter: func(config *Config) (resp *Response, err error) {
+				resp = &Response{
+					Request: config.Request,
+				}
+				return
+			},
+		})
+		resp, err := ins.Get("/")
+		assert.Nil(err)
+		assert.Equal("1", resp.Request.Header.Get("X-Request-ID"))
+
+		_, err = ins.Get("/error")
+		assert.Equal(customErr, err.(*Error).Err)
+	})
+
+	t.Run("transform response", func(t *testing.T) {
+		assert := assert.New(t)
+		originalData := []byte("abcd")
+		mockGzipData := []byte("gzip data")
+		customErr := errors.New("custom error")
+		ins := NewInstance(&InstanceConfig{
+			BaseURL: "https://aslant.site/",
+			Adapter: func(config *Config) (resp *Response, err error) {
+				resp = &Response{}
+				if config.Route == "/" {
+					resp.Data = originalData
+				}
+
+				return
+			},
+			TransformResponse: []TransformResponse{
+				func(body []byte, headers http.Header) (data []byte, err error) {
+					if bytes.Equal(body, originalData) {
+						data = mockGzipData
+						return
+					}
+					err = customErr
+					return
+				},
+			},
+		})
+		resp, err := ins.Get("/")
+		assert.Nil(err)
+		assert.Equal(mockGzipData, resp.Data)
+
+		_, err = ins.Get("/error")
+		assert.Equal(customErr, err.(*Error).Err)
+	})
+
+	t.Run("response interceptors", func(t *testing.T) {
+		assert := assert.New(t)
+		mockData := []byte("abcd")
+		customErr := errors.New("custom error")
+		ins := NewInstance(&InstanceConfig{
+			BaseURL: "https://aslant.site/",
+			Adapter: func(config *Config) (resp *Response, err error) {
+				resp = &Response{
+					Config: config,
+				}
+				return
+			},
+			ResponseInterceptors: []ResponseInterceptor{
+				func(resp *Response) (err error) {
+					if resp.Config.Route == "/error" {
+						err = customErr
+						return
+					}
+					resp.Data = mockData
+					return
+				},
+			},
+		})
+		resp, err := ins.Get("/")
+		assert.Nil(err)
+		assert.Equal(mockData, resp.Data)
+
+		_, err = ins.Get("/error")
+		assert.Equal(customErr, err.(*Error).Err)
 	})
 
 	t.Run("on error", func(t *testing.T) {
 		assert := assert.New(t)
-		customErr := errors.New("abcd")
-		mockAdapter := func(config *Config) (resp *Response, err error) {
-			err = customErr
-			return
-		}
-
+		done := false
+		customErr := errors.New("custom error")
 		ins := NewInstance(&InstanceConfig{
 			BaseURL: "https://aslant.site/",
-			Adapter: mockAdapter,
-		})
-
-		done := false
-		_, err := ins.Request(&Config{
-			URL: "/users/:type?a=1",
-			Params: map[string]string{
-				"type": "me",
+			Adapter: func(config *Config) (resp *Response, err error) {
+				resp = &Response{
+					Status: 200,
+				}
+				err = customErr
+				return
 			},
 			OnError: func(err error, config *Config) {
-				assert.Equal(customErr, err)
 				done = true
 			},
 		})
-		assert.NotNil(err)
+
+		_, err := ins.Get("/")
 		assert.True(done)
+		assert.Equal(customErr, err.(*Error).Err)
 	})
 
-	t.Run("request", func(t *testing.T) {
+	t.Run("timeout", func(t *testing.T) {
 		assert := assert.New(t)
-		defer gock.Off()
-		gock.New("http://aslant.site").
-			Get("/").
-			MatchParam("a", "1").
-			Reply(200).
-			JSON(map[string]string{
-				"name": "tree.xie",
-			})
-		ins := NewInstance(nil)
-		query := make(url.Values)
-		query.Set("a", "1")
-		resp, err := ins.Request(&Config{
-			BaseURL: "http://aslant.site/",
-			URL:     "/",
-			Query:   query,
-		})
-		assert.Nil(err)
-		assert.Equal(200, resp.Status)
-	})
-
-	t.Run("get", func(t *testing.T) {
-		assert := assert.New(t)
-		url := "https://aslant.site/"
-		done := false
-		mockAdapter := func(config *Config) (resp *Response, err error) {
-			assert.Equal(url, config.URL)
-			assert.Equal(http.MethodGet, config.Method)
-			done = true
-			return
-		}
-
 		ins := NewInstance(&InstanceConfig{
-			Adapter: mockAdapter,
+			BaseURL: "https://aslant.site/",
+			Timeout: time.Nanosecond,
 		})
-		_, err := ins.Get(url)
-		assert.Nil(err)
-		assert.True(done)
+		_, err := ins.Get("/")
+		e, ok := err.(*Error)
+		assert.True(ok)
+		assert.True(e.Timeout())
 	})
 
-	t.Run("delete", func(t *testing.T) {
-		assert := assert.New(t)
-		url := "https://aslant.site/"
-		done := false
-		mockAdapter := func(config *Config) (resp *Response, err error) {
-			assert.Equal(url, config.URL)
-			assert.Equal(http.MethodDelete, config.Method)
-			done = true
+	mockIns := NewInstance(&InstanceConfig{
+		Adapter: func(config *Config) (resp *Response, err error) {
+			resp = &Response{
+				Config: config,
+			}
 			return
-		}
-
-		ins := NewInstance(&InstanceConfig{
-			Adapter: mockAdapter,
-		})
-		_, err := ins.Delete(url)
-		assert.Nil(err)
-		assert.True(done)
+		},
 	})
-
-	t.Run("head", func(t *testing.T) {
+	t.Run("GET", func(t *testing.T) {
 		assert := assert.New(t)
-		url := "https://aslant.site/"
-		done := false
-		mockAdapter := func(config *Config) (resp *Response, err error) {
-			assert.Equal(url, config.URL)
-			assert.Equal(http.MethodHead, config.Method)
-			done = true
-			return
-		}
-
-		ins := NewInstance(&InstanceConfig{
-			Adapter: mockAdapter,
-		})
-		_, err := ins.Head(url)
+		resp, err := mockIns.Get("/")
 		assert.Nil(err)
-		assert.True(done)
+		assert.Equal("GET", resp.Config.Method)
+		assert.Equal("/", resp.Config.URL)
 	})
-
-	t.Run("options", func(t *testing.T) {
+	t.Run("DELETE", func(t *testing.T) {
 		assert := assert.New(t)
-		url := "https://aslant.site/"
-		done := false
-		mockAdapter := func(config *Config) (resp *Response, err error) {
-			assert.Equal(url, config.URL)
-			assert.Equal(http.MethodOptions, config.Method)
-			done = true
-			return
-		}
-
-		ins := NewInstance(&InstanceConfig{
-			Adapter: mockAdapter,
-		})
-		_, err := ins.Options(url)
+		resp, err := mockIns.Delete("/")
 		assert.Nil(err)
-		assert.True(done)
+		assert.Equal("DELETE", resp.Config.Method)
+		assert.Equal("/", resp.Config.URL)
 	})
-
-	t.Run("post", func(t *testing.T) {
+	t.Run("HEAD", func(t *testing.T) {
 		assert := assert.New(t)
-		url := "https://aslant.site/"
-		done := false
-		data := []byte("abcd")
-		mockAdapter := func(config *Config) (resp *Response, err error) {
-			assert.Equal(url, config.URL)
-			assert.Equal(http.MethodPost, config.Method)
-			assert.Equal(data, config.Body)
-			done = true
-			return
-		}
-
-		ins := NewInstance(&InstanceConfig{
-			Adapter: mockAdapter,
-		})
-		_, err := ins.Post(url, data)
+		resp, err := mockIns.Head("/")
 		assert.Nil(err)
-		assert.True(done)
+		assert.Equal("HEAD", resp.Config.Method)
+		assert.Equal("/", resp.Config.URL)
 	})
-
-	t.Run("put", func(t *testing.T) {
+	t.Run("OPTIONS", func(t *testing.T) {
 		assert := assert.New(t)
-		url := "https://aslant.site/"
-		done := false
-		data := []byte("abcd")
-		mockAdapter := func(config *Config) (resp *Response, err error) {
-			assert.Equal(url, config.URL)
-			assert.Equal(http.MethodPut, config.Method)
-			assert.Equal(data, config.Body)
-			done = true
-			return
-		}
-
-		ins := NewInstance(&InstanceConfig{
-			Adapter: mockAdapter,
-		})
-		_, err := ins.Put(url, data)
+		resp, err := mockIns.Options("/")
 		assert.Nil(err)
-		assert.True(done)
+		assert.Equal("OPTIONS", resp.Config.Method)
+		assert.Equal("/", resp.Config.URL)
 	})
-
-	t.Run("patch", func(t *testing.T) {
+	t.Run("POST", func(t *testing.T) {
 		assert := assert.New(t)
-		url := "https://aslant.site/"
-		done := false
-		data := []byte("abcd")
-		mockAdapter := func(config *Config) (resp *Response, err error) {
-			assert.Equal(url, config.URL)
-			assert.Equal(http.MethodPatch, config.Method)
-			assert.Equal(data, config.Body)
-			done = true
-			return
-		}
-
-		ins := NewInstance(&InstanceConfig{
-			Adapter: mockAdapter,
+		resp, err := mockIns.Post("/", map[string]string{
+			"a": "1",
 		})
-		_, err := ins.Patch(url, data)
 		assert.Nil(err)
-		assert.True(done)
+		assert.Equal("POST", resp.Config.Method)
+		assert.Equal("/", resp.Config.URL)
+	})
+	t.Run("PUT", func(t *testing.T) {
+		assert := assert.New(t)
+		resp, err := mockIns.Put("/", map[string]string{
+			"a": "1",
+		})
+		assert.Nil(err)
+		assert.Equal("PUT", resp.Config.Method)
+		assert.Equal("/", resp.Config.URL)
+	})
+	t.Run("PATCH", func(t *testing.T) {
+		assert := assert.New(t)
+		resp, err := mockIns.Patch("/", map[string]string{
+			"a": "1",
+		})
+		assert.Nil(err)
+		assert.Equal("PATCH", resp.Config.Method)
+		assert.Equal("/", resp.Config.URL)
 	})
 }

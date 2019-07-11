@@ -17,6 +17,7 @@ package axios
 import (
 	"fmt"
 	"io"
+	"net/url"
 )
 
 type (
@@ -51,8 +52,25 @@ func (e *Error) Format(s fmt.State, verb rune) {
 	}
 }
 
+// Timeout timeout error
+func (e *Error) Timeout() bool {
+	if e.Err == nil {
+		return false
+	}
+	err, ok := e.Err.(*url.Error)
+	if !ok {
+		return false
+	}
+	return err.Timeout()
+}
+
 // CreateError create an error
 func CreateError(err error, config *Config, code int) *Error {
+	e, ok := err.(*Error)
+	// 如果已经是Error，直接返回
+	if ok {
+		return e
+	}
 	return &Error{
 		Message: err.Error(),
 		Code:    code,

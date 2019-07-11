@@ -30,4 +30,10 @@ func TestError(t *testing.T) {
 	assert.Equal("code=500, message=abcd", fmt.Sprintf("%v", err))
 	assert.Equal("code=500, message=abcd", fmt.Sprintf("%s", err))
 	assert.Equal(`"code=500, message=abcd"`, fmt.Sprintf("%q", err))
+
+	err = CreateError(err, nil, 400)
+	assert.Equal("code=500, message=abcd", err.Error())
+	assert.Equal("code=500, message=abcd", fmt.Sprintf("%v", err))
+	assert.Equal("code=500, message=abcd", fmt.Sprintf("%s", err))
+	assert.Equal(`"code=500, message=abcd"`, fmt.Sprintf("%q", err))
 }
