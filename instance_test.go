@@ -311,6 +311,7 @@ func TestRequest(t *testing.T) {
 		assert := assert.New(t)
 		done := false
 		customErr := errors.New("custom error")
+		newCustomErr := errors.New("new custom error")
 		ins := NewInstance(&InstanceConfig{
 			BaseURL: "https://aslant.site/",
 			Adapter: func(config *Config) (resp *Response, err error) {
@@ -320,14 +321,15 @@ func TestRequest(t *testing.T) {
 				err = customErr
 				return
 			},
-			OnError: func(err error, config *Config) {
+			OnError: func(err error, config *Config) error {
 				done = true
+				return newCustomErr
 			},
 		})
 
 		_, err := ins.Get("/")
 		assert.True(done)
-		assert.Equal(customErr, err.(*Error).Err)
+		assert.Equal(newCustomErr, err)
 	})
 
 	t.Run("timeout", func(t *testing.T) {

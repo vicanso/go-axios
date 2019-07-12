@@ -286,7 +286,10 @@ func (ins *Instance) Request(config *Config) (resp *Response, err error) {
 		err = CreateError(err, config, status)
 	}
 	if err != nil && config.OnError != nil {
-		config.OnError(err, config)
+		newErr := config.OnError(err, config)
+		if newErr != nil {
+			err = newErr
+		}
 	}
 	return
 }
