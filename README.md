@@ -4,6 +4,22 @@
 
 HTTP client for golang, it derives [axios](https://github.com/axios/axios).
 
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/vicanso/go-axios"
+)
+
+func main() {
+	ins := axios.NewInstance(nil)
+	resp, err := ins.Get("https://aslant.site/")
+	fmt.Println(resp.Status, err)
+}
+```
+
 ## API
 
 ### Config
@@ -39,7 +55,7 @@ The http instance config, it will be merged to http request config.
 - `Adapter` allows custom handling of requests which makes testing easier.
 - `RequestInterceptors` request interceptor list.
 - `ResponseInterceptors` response interceptor list.
-- `EnableTrace` enable trace
+- `EnableTrace` enable trace.
 - `OnError` on error event.
 
 ### Request(config *Config) (resp *Response, err error)
