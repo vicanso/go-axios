@@ -408,3 +408,14 @@ func TestRequest(t *testing.T) {
 		assert.Equal("/", resp.Config.URL)
 	})
 }
+
+func TestMock(t *testing.T) {
+	assert := assert.New(t)
+	ins := NewInstance(nil)
+	mockResp := &Response{}
+	done := ins.Mock(mockResp)
+	defer done()
+	resp, err := ins.Get("/")
+	assert.Nil(err)
+	assert.Equal(mockResp, resp)
+}

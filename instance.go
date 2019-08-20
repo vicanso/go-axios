@@ -149,6 +149,9 @@ func mergeConfig(config *Config, insConfig *InstanceConfig) {
 
 // NewInstance create a new instance
 func NewInstance(config *InstanceConfig) *Instance {
+	if config == nil {
+		config = &InstanceConfig{}
+	}
 	return &Instance{
 		Config: config,
 	}
@@ -358,4 +361,15 @@ func (ins *Instance) Patch(url string, data interface{}) (resp *Response, err er
 		Body:   data,
 	}
 	return ins.Request(config)
+}
+
+// Mock mock response
+func (ins *Instance) Mock(resp *Response) (done func()) {
+	originalAdapter := ins.Config.Adapter
+	ins.Config.Adapter = func(_ *Config) (*Response, error) {
+		return resp, nil
+	}
+	return func() {
+		ins.Config.Adapter = originalAdapter
+	}
 }

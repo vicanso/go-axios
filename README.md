@@ -247,25 +247,12 @@ func getUserInfo() (userInfo *UserInfo, err error) {
 	return
 }
 
-// mockUserInfo mock user info
-func mockUserInfo(data []byte) (done func()) {
-	originalAdapter := aslant.Config.Adapter
-	aslant.Config.Adapter = func(config *axios.Config) (resp *axios.Response, err error) {
-		resp = &axios.Response{
-			Data:   data,
-			Status: 200,
-		}
-		return
-	}
-
-	done = func() {
-		aslant.Config.Adapter = originalAdapter
-	}
-	return
-}
-
 func main() {
-	mockUserInfo([]byte(`{"account":"tree", "name":"tree.xie"}`))
+	done := aslant.Mock(&axios.Response{
+		Data: []byte(`{"account":"tree", "name":"tree.xie"}`),
+		Status: 200,
+	});
+	defer done()
 	userInfo, err := getUserInfo()
 	fmt.Println(err)
 	fmt.Println(userInfo)
