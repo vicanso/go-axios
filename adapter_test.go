@@ -15,6 +15,7 @@
 package axios
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -59,7 +60,7 @@ func TestAdapter(t *testing.T) {
 		config.Request, _ = newRequest(config)
 		_, err := defaultAdapter(config)
 		assert.NotNil(err)
-		assert.Equal("Post http://aslant.site/: gock: cannot match any request", err.Error())
+		assert.True(strings.Contains(err.Error(), "cannot match any request"))
 	})
 
 }
