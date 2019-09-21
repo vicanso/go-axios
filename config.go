@@ -27,6 +27,8 @@ import (
 type (
 	// OnError on error function
 	OnError func(err error, config *Config) (newErr error)
+	// OnDone on done event
+	OnDone func(config *Config, resp *Response, err error)
 	// Config http request config
 	Config struct {
 		Request  *http.Request
@@ -74,6 +76,8 @@ type (
 
 		// OnError on error function
 		OnError OnError
+		// OnDone on done event
+		OnDone OnDone
 
 		HTTPTrace   *HT.HTTPTrace
 		enableTrace bool
@@ -106,6 +110,8 @@ type (
 		EnableTrace bool
 		// OnError on error function
 		OnError OnError
+		// OnDone on done event
+		OnDone OnDone
 	}
 )
 

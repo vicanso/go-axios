@@ -41,6 +41,7 @@ The http request config.
 - `RequestInterceptors` request interceptor list.
 - `ResponseInterceptors` response interceptor list.
 - `OnError` on error event.
+- `OnDone` on done event.
 
 ### InstanceConfig
 
@@ -57,6 +58,7 @@ The http instance config, it will be merged to http request config.
 - `ResponseInterceptors` response interceptor list.
 - `EnableTrace` enable trace.
 - `OnError` on error event.
+- `OnDone` on done event.
 
 ### Request(config *Config) (resp *Response, err error)
 

@@ -145,6 +145,9 @@ func mergeConfig(config *Config, insConfig *InstanceConfig) {
 	if config.OnError == nil {
 		config.OnError = insConfig.OnError
 	}
+	if config.OnDone == nil {
+		config.OnDone = insConfig.OnDone
+	}
 }
 
 // NewInstance create a new instance
@@ -276,6 +279,7 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 // Request http request
 func (ins *Instance) Request(config *Config) (resp *Response, err error) {
 	resp, err = ins.request(config)
+	// TODO 添加done事件
 	if err != nil {
 		status := 0
 		if resp != nil {
@@ -293,6 +297,9 @@ func (ins *Instance) Request(config *Config) (resp *Response, err error) {
 		if newErr != nil {
 			err = newErr
 		}
+	}
+	if config.OnDone != nil {
+		config.OnDone(config, resp, err)
 	}
 	return
 }

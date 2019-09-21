@@ -331,6 +331,49 @@ func TestRequest(t *testing.T) {
 		assert.True(done)
 		assert.Equal(newCustomErr, err)
 	})
+	t.Run("on done", func(t *testing.T) {
+		t.Run("request success", func(t *testing.T) {
+			assert := assert.New(t)
+			done := false
+			ins := NewInstance(&InstanceConfig{
+				BaseURL: "https://aslant.site/",
+				Adapter: func(config *Config) (resp *Response, err error) {
+					resp = &Response{
+						Status: 200,
+					}
+					return
+				},
+				OnDone: func(config *Config, resp *Response, err error) {
+					assert.Nil(err)
+					assert.Equal(200, resp.Status)
+					done = true
+				},
+			})
+			_, err := ins.Get("/")
+			assert.Nil(err)
+			assert.True(done)
+		})
+		t.Run("request fail", func(t *testing.T) {
+			assert := assert.New(t)
+			done := false
+			customErr := errors.New("message")
+			ins := NewInstance(&InstanceConfig{
+				BaseURL: "https://aslant.site/",
+				Adapter: func(config *Config) (resp *Response, err error) {
+					err = customErr
+					return
+				},
+				OnDone: func(config *Config, resp *Response, err error) {
+					e, _ := err.(*Error)
+					assert.Equal(customErr, e.Err)
+					done = true
+				},
+			})
+			_, err := ins.Get("/")
+			assert.NotNil(err)
+			assert.True(done)
+		})
+	})
 
 	t.Run("timeout", func(t *testing.T) {
 		assert := assert.New(t)
