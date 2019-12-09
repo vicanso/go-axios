@@ -14,7 +14,10 @@
 
 package axios
 
-import "net/http"
+import (
+	"encoding/json"
+	"net/http"
+)
 
 type (
 	// Response http response
@@ -29,6 +32,6 @@ type (
 
 // JSON convert json data
 func (resp *Response) JSON(v interface{}) (err error) {
-	err = standardJSON.Unmarshal(resp.Data, v)
+	err = json.Unmarshal(resp.Data, v)
 	return
 }

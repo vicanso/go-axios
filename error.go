@@ -46,7 +46,7 @@ func (e *Error) Format(s fmt.State, verb rune) {
 	default:
 		fallthrough
 	case 's':
-		io.WriteString(s, e.Error())
+		_, _ = io.WriteString(s, e.Error())
 	case 'q':
 		fmt.Fprintf(s, "%q", e.Error())
 	}

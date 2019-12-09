@@ -17,19 +17,14 @@ package axios
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/dsnet/compress/brotli"
-
-	jsoniter "github.com/json-iterator/go"
-)
-
-var (
-	standardJSON = jsoniter.ConfigCompatibleWithStandardLibrary
+	"github.com/andybalholm/brotli"
 )
 
 type (
@@ -68,7 +63,7 @@ func newGzipReader(r io.Reader) (io.Reader, error) {
 }
 
 func newBrReader(r io.Reader) (io.Reader, error) {
-	return brotli.NewReader(r, nil)
+	return brotli.NewReader(r), nil
 }
 
 func setContentTypeIfUnset(headers http.Header, value string) {
@@ -78,17 +73,17 @@ func setContentTypeIfUnset(headers http.Header, value string) {
 }
 
 func convertRequestBody(data interface{}, headers http.Header) (body interface{}, err error) {
-	switch data.(type) {
+	switch data := data.(type) {
 	case []byte:
-		body = data.([]byte)
+		body = data
 	case string:
-		body = []byte(data.(string))
+		body = []byte(data)
 	case url.Values:
-		v := data.(url.Values)
+		v := data
 		body = []byte(v.Encode())
 		setContentTypeIfUnset(headers, contentTypeWWWFormUrlencoded)
 	default:
-		body, err = standardJSON.Marshal(data)
+		body, err = json.Marshal(data)
 		// 如果成功转换
 		if err == nil {
 			setContentTypeIfUnset(headers, contentTypeJSON)
