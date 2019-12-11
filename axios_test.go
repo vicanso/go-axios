@@ -15,10 +15,22 @@
 package axios
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestSetJSONMarshal(t *testing.T) {
+	marshal := func(v interface{}) ([]byte, error) {
+		return json.Marshal(v)
+	}
+	unmarshal := func(data []byte, v interface{}) error {
+		return json.Unmarshal(data, v)
+	}
+	SetJSONMarshal(marshal)
+	SetJSONUnmarshal(unmarshal)
+}
 
 func TestDefaultInstance(t *testing.T) {
 	assert := assert.New(t)

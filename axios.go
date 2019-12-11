@@ -14,9 +14,34 @@
 
 package axios
 
+import (
+	"encoding/json"
+)
+
+type (
+	// JSONMarshal json marshal function type
+	JSONMarshal func(interface{}) ([]byte, error)
+	// JSONUnmarshal json unmarshal function type
+	JSONUnmarshal func([]byte, interface{}) error
+)
+
 var (
 	defaultIns *Instance
+	// default json marshal
+	jsonMarshal = json.Marshal
+	// default json unmarshal
+	jsonUnmarshal = json.Unmarshal
 )
+
+// SetJSONMarshal set json marshal function
+func SetJSONMarshal(fn JSONMarshal) {
+	jsonMarshal = fn
+}
+
+// SetJSONUnmarshal set json unmarshal function
+func SetJSONUnmarshal(fn JSONUnmarshal) {
+	jsonUnmarshal = fn
+}
 
 func init() {
 	defaultIns = NewInstance(nil)

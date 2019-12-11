@@ -17,7 +17,6 @@ package axios
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -83,7 +82,7 @@ func convertRequestBody(data interface{}, headers http.Header) (body interface{}
 		body = []byte(v.Encode())
 		setContentTypeIfUnset(headers, contentTypeWWWFormUrlencoded)
 	default:
-		body, err = json.Marshal(data)
+		body, err = jsonMarshal(data)
 		// 如果成功转换
 		if err == nil {
 			setContentTypeIfUnset(headers, contentTypeJSON)
