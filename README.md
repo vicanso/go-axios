@@ -2,7 +2,7 @@
 
 [![Build Status](https://img.shields.io/travis/vicanso/go-axios.svg?label=linux+build)](https://travis-ci.org/vicanso/go-axios)
 
-HTTP client for golang, it derives [axios](https://github.com/axios/axios).
+简单易用的HTTP客户端，参考[axios](https://github.com/axios/axios)的相关实现，支持各类不同的`interceptor`与`transform`。
 
 ```go
 package main
@@ -14,8 +14,10 @@ import (
 )
 
 func main() {
-	ins := axios.NewInstance(nil)
-	resp, err := ins.Get("https://aslant.site/")
+	ins := axios.NewInstance(&axios.InstanceConfig{
+		BaseURL: "https://www.baidu.com",
+	})
+	resp, err := ins.Get("/")
 	fmt.Println(resp.Status, err)
 }
 ```
