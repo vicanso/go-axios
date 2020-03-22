@@ -380,3 +380,15 @@ func (ins *Instance) Mock(resp *Response) (done func()) {
 		ins.Config.Adapter = originalAdapter
 	}
 }
+
+// MultiMock multi mock response
+func (ins *Instance) MultiMock(multi map[string]*Response) (done func()) {
+	originalAdapter := ins.Config.Adapter
+	ins.Config.Adapter = func(c *Config) (*Response, error) {
+		resp := multi[c.Route]
+		return resp, nil
+	}
+	return func() {
+		ins.Config.Adapter = originalAdapter
+	}
+}

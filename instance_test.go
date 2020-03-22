@@ -457,8 +457,16 @@ func TestMock(t *testing.T) {
 	ins := NewInstance(nil)
 	mockResp := &Response{}
 	done := ins.Mock(mockResp)
-	defer done()
 	resp, err := ins.Get("/")
+	assert.Nil(err)
+	assert.Equal(mockResp, resp)
+	done()
+
+	done = ins.MultiMock(map[string]*Response{
+		"/": mockResp,
+	})
+	defer done()
+	resp, err = ins.Get("/")
 	assert.Nil(err)
 	assert.Equal(mockResp, resp)
 }
