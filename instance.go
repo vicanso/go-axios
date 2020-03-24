@@ -305,67 +305,88 @@ func (ins *Instance) Request(config *Config) (resp *Response, err error) {
 }
 
 // Get http get request
-func (ins *Instance) Get(url string) (resp *Response, err error) {
+func (ins *Instance) Get(url string, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		URL:    url,
 		Method: http.MethodGet,
+	}
+	if len(query) != 0 {
+		config.Query = query[0]
 	}
 	return ins.Request(config)
 }
 
 // Delete http delete request
-func (ins *Instance) Delete(url string) (resp *Response, err error) {
+func (ins *Instance) Delete(url string, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		URL:    url,
 		Method: http.MethodDelete,
+	}
+	if len(query) != 0 {
+		config.Query = query[0]
 	}
 	return ins.Request(config)
 }
 
 // Head http head request
-func (ins *Instance) Head(url string) (resp *Response, err error) {
+func (ins *Instance) Head(url string, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		URL:    url,
 		Method: http.MethodHead,
+	}
+	if len(query) != 0 {
+		config.Query = query[0]
 	}
 	return ins.Request(config)
 }
 
 // Options http options request
-func (ins *Instance) Options(url string) (resp *Response, err error) {
+func (ins *Instance) Options(url string, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		URL:    url,
 		Method: http.MethodOptions,
+	}
+	if len(query) != 0 {
+		config.Query = query[0]
 	}
 	return ins.Request(config)
 }
 
 // Post http post request
-func (ins *Instance) Post(url string, data interface{}) (resp *Response, err error) {
+func (ins *Instance) Post(url string, data interface{}, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		URL:    url,
 		Method: http.MethodPost,
 		Body:   data,
 	}
+	if len(query) != 0 {
+		config.Query = query[0]
+	}
 	return ins.Request(config)
 }
 
 // Put http put request
-func (ins *Instance) Put(url string, data interface{}) (resp *Response, err error) {
+func (ins *Instance) Put(url string, data interface{}, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		URL:    url,
 		Method: http.MethodPut,
 		Body:   data,
 	}
+	if len(query) != 0 {
+		config.Query = query[0]
+	}
 	return ins.Request(config)
 }
 
 // Patch http patch request
-func (ins *Instance) Patch(url string, data interface{}) (resp *Response, err error) {
+func (ins *Instance) Patch(url string, data interface{}, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		URL:    url,
 		Method: http.MethodPatch,
 		Body:   data,
+	}
+	if len(query) != 0 {
+		config.Query = query[0]
 	}
 	return ins.Request(config)
 }
