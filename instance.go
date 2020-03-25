@@ -279,7 +279,6 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 // Request http request
 func (ins *Instance) Request(config *Config) (resp *Response, err error) {
 	resp, err = ins.request(config)
-	// TODO 添加done事件
 	if err != nil {
 		status := 0
 		if resp != nil {
