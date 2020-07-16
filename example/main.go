@@ -1,3 +1,5 @@
+// +build ignore
+
 package main
 
 import (
@@ -18,7 +20,7 @@ func main() {
 		},
 		Timeout: 10 * time.Second,
 	})
-	resp, err := ins.Get("https://aslant.site/")
+	resp, err := ins.Get("https://www.baidu.com/")
 	if err != nil {
 		panic(err)
 	}
