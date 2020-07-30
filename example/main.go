@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -24,7 +25,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	buf, _ := json.Marshal(resp.Config.HTTPTrace.Stats())
 	fmt.Println(resp.Config.HTTPTrace.Stats())
+	fmt.Println(string(buf))
 	fmt.Println(resp.Config.HTTPTrace.Protocol)
 	fmt.Println(resp.Status)
 	fmt.Println(string(resp.Data))
