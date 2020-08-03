@@ -204,7 +204,6 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 		}
 		trace, ht := HT.NewClientTrace()
 		ctx = httptrace.WithClientTrace(ctx, trace)
-		req = req.WithContext(ctx)
 		defer ht.Finish()
 		config.HTTPTrace = ht
 		config.Context = ctx
