@@ -12,6 +12,14 @@ import (
 )
 
 func main() {
+	// 使用默认的配置
+	resp, err := axios.Get("https://www.baidu.com")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(resp.Data)
+
+	// 自定义instance，可指定client、interceptor等
 	ins := axios.NewInstance(&axios.InstanceConfig{
 		EnableTrace: true,
 		Client: &http.Client{
@@ -21,7 +29,7 @@ func main() {
 		},
 		Timeout: 10 * time.Second,
 	})
-	resp, err := ins.Get("https://www.baidu.com/")
+	resp, err = ins.Get("https://www.baidu.com/")
 	if err != nil {
 		panic(err)
 	}

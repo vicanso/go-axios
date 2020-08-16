@@ -12,63 +12,46 @@
 - Error与Done事件的支持，通过监听事件可快捷收集服务的出错与性能统计
 
 ```go
+// +build ignore
+
 package main
 
 import (
-	"crypto/tls"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/vicanso/go-axios"
-	"github.com/vicanso/hes"
-)
-
-type (
-	loginTokenResp struct {
-		Token string `json:"token,omitempty"`
-	}
 )
 
 func main() {
+	// 使用默认的配置
+	resp, err := axios.Get("https://www.baidu.com")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(resp.Data)
+
+	// 自定义instance，可指定client、interceptor等
 	ins := axios.NewInstance(&axios.InstanceConfig{
-		BaseURL: "https://tiny.npmtrend.com",
-		// 对于>=400的出错请求，根据响应数据转换为对应的出错
-		ResponseInterceptors: []axios.ResponseInterceptor{
-			func(resp *axios.Response) error {
-				if resp.Status < http.StatusBadRequest {
-					return nil
-				}
-				he := &hes.Error{}
-				err := resp.JSON(he)
-				// 如果返回数据非json
-				if err != nil {
-					he = hes.NewWithErrorStatusCode(errors.New(string(resp.Data)), resp.Status)
-				}
-				if he.Message == "" {
-					he.Message = "未知异常"
-				}
-				return he
+		EnableTrace: true,
+		Client: &http.Client{
+			Transport: &http.Transport{
+				Proxy: http.ProxyFromEnvironment,
 			},
 		},
+		Timeout: 10 * time.Second,
 	})
-	resp, err := ins.Get("/users/v1/me/login")
+	resp, err = ins.Get("https://www.baidu.com/")
 	if err != nil {
 		panic(err)
 	}
-	tokenResp := new(loginTokenResp)
-	err = resp.JSON(tokenResp)
-	if err != nil {
-		panic(err)
-	}
-	resp, err = ins.Post("/users/v1/me/login", map[string]string{
-		"account": "tree.xie",
-		// 密码需要通过tokenResp.Token与密码迦后传输
-		"password": "md5(password + token)",
-	})
-	if err != nil {
-		panic(err)
-	}
+	buf, _ := json.Marshal(resp.Config.HTTPTrace.Stats())
+	fmt.Println(resp.Config.HTTPTrace.Stats())
+	fmt.Println(string(buf))
+	fmt.Println(resp.Config.HTTPTrace.Protocol)
+	fmt.Println(resp.Status)
 	fmt.Println(string(resp.Data))
 }
 ```
