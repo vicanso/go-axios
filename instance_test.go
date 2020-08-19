@@ -239,7 +239,7 @@ func TestRequest(t *testing.T) {
 		assert.Equal("1", resp.Request.Header.Get("X-Request-ID"))
 
 		_, err = ins.Get("/error")
-		assert.Equal(customErr, err.(*Error).Err)
+		assert.Equal(customErr, err)
 	})
 
 	t.Run("transform response", func(t *testing.T) {
@@ -273,7 +273,7 @@ func TestRequest(t *testing.T) {
 		assert.Equal(mockGzipData, resp.Data)
 
 		_, err = ins.Get("/error")
-		assert.Equal(customErr, err.(*Error).Err)
+		assert.Equal(customErr, err)
 	})
 
 	t.Run("response interceptors", func(t *testing.T) {
@@ -304,7 +304,7 @@ func TestRequest(t *testing.T) {
 		assert.Equal(mockData, resp.Data)
 
 		_, err = ins.Get("/error")
-		assert.Equal(customErr, err.(*Error).Err)
+		assert.Equal(customErr, err)
 	})
 
 	t.Run("on error", func(t *testing.T) {
@@ -364,8 +364,7 @@ func TestRequest(t *testing.T) {
 					return
 				},
 				OnDone: func(config *Config, resp *Response, err error) {
-					e, _ := err.(*Error)
-					assert.Equal(customErr, e.Err)
+					assert.Equal(customErr, err)
 					done = true
 				},
 			})
@@ -382,7 +381,7 @@ func TestRequest(t *testing.T) {
 			Timeout: time.Nanosecond,
 		})
 		_, err := ins.Get("/")
-		e, ok := err.(*Error)
+		e, ok := err.(*url.Error)
 		assert.True(ok)
 		assert.True(e.Timeout())
 	})

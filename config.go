@@ -33,7 +33,6 @@ type (
 	Config struct {
 		Request  *http.Request
 		Response *Response
-
 		// Route the request route
 		Route string
 		// URL the request url

@@ -278,18 +278,6 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 // Request http request
 func (ins *Instance) Request(config *Config) (resp *Response, err error) {
 	resp, err = ins.request(config)
-	if err != nil {
-		status := 0
-		if resp != nil {
-			status = resp.Status
-		}
-		// 如果HTTP的响应码小于400，则出错是由于数据转换或拦截导致，
-		// 错误码使用500
-		if status < http.StatusBadRequest {
-			status = http.StatusInternalServerError
-		}
-		err = CreateError(err, config, status)
-	}
 	if err != nil && config.OnError != nil {
 		newErr := config.OnError(err, config)
 		if newErr != nil {
