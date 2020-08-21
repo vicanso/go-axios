@@ -144,3 +144,21 @@ func (conf *Config) GetBool(key string) bool {
 func (conf *Config) GetInt(key string) int {
 	return cast.ToInt(conf.Get(key))
 }
+
+// AddQuery add query
+func (conf *Config) AddQuery(key, value string) *Config {
+	if conf.Query == nil {
+		conf.Query = make(url.Values)
+	}
+	conf.Query.Add(key, value)
+	return conf
+}
+
+// AddParam add param
+func (conf *Config) AddParam(key, value string) *Config {
+	if conf.Params == nil {
+		conf.Params = make(map[string]string)
+	}
+	conf.Params[key] = value
+	return conf
+}

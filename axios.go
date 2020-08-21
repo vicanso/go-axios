@@ -16,6 +16,7 @@ package axios
 
 import (
 	"encoding/json"
+	"net/url"
 )
 
 type (
@@ -53,38 +54,38 @@ func Request(config *Config) (resp *Response, err error) {
 }
 
 // Get http get request by default instance
-func Get(url string) (resp *Response, err error) {
-	return defaultIns.Get(url)
+func Get(url string, query ...url.Values) (resp *Response, err error) {
+	return defaultIns.Get(url, query...)
 }
 
 // Delete http delete request by default instance
-func Delete(url string) (resp *Response, err error) {
-	return defaultIns.Delete(url)
+func Delete(url string, query ...url.Values) (resp *Response, err error) {
+	return defaultIns.Delete(url, query...)
 }
 
 // Head http head request by default instance
-func Head(url string) (resp *Response, err error) {
-	return defaultIns.Head(url)
+func Head(url string, query ...url.Values) (resp *Response, err error) {
+	return defaultIns.Head(url, query...)
 }
 
 // Options http options request by default instance
-func Options(url string) (resp *Response, err error) {
-	return defaultIns.Options(url)
+func Options(url string, query ...url.Values) (resp *Response, err error) {
+	return defaultIns.Options(url, query...)
 }
 
 // Post http post request by default instance
-func Post(url string, data interface{}) (resp *Response, err error) {
-	return defaultIns.Post(url, data)
+func Post(url string, data interface{}, query ...url.Values) (resp *Response, err error) {
+	return defaultIns.Post(url, data, query...)
 }
 
 // Put http put request by default instance
-func Put(url string, data interface{}) (resp *Response, err error) {
-	return defaultIns.Put(url, data)
+func Put(url string, data interface{}, query ...url.Values) (resp *Response, err error) {
+	return defaultIns.Put(url, data, query...)
 }
 
 // Patch http patch request by default instance
-func Patch(url string, data interface{}) (resp *Response, err error) {
-	return defaultIns.Patch(url, data)
+func Patch(url string, data interface{}, query ...url.Values) (resp *Response, err error) {
+	return defaultIns.Patch(url, data, query...)
 }
 
 // GetDefaultInstance get default instanc
