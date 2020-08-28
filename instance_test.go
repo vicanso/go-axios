@@ -307,6 +307,27 @@ func TestRequest(t *testing.T) {
 		assert.Equal(customErr, err)
 	})
 
+	t.Run("before new request", func(t *testing.T) {
+		assert := assert.New(t)
+		ins := NewInstance(&InstanceConfig{
+			BaseURL: "https://aslant.site/",
+			Adapter: func(config *Config) (resp *Response, err error) {
+				resp = &Response{
+					Status: 200,
+					Data:   []byte(config.URL),
+				}
+				return
+			},
+			BeforeNewRequest: func(conf *Config) error {
+				conf.BaseURL = "http://www.baidu.com"
+				return nil
+			},
+		})
+		resp, err := ins.Get("/")
+		assert.Nil(err)
+		assert.Equal("http://www.baidu.com/", string(resp.Data))
+	})
+
 	t.Run("on error", func(t *testing.T) {
 		assert := assert.New(t)
 		done := false

@@ -29,6 +29,8 @@ type (
 	OnError func(err error, config *Config) (newErr error)
 	// OnDone on done event
 	OnDone func(config *Config, resp *Response, err error)
+	// BeforeNewRequest before new request
+	BeforeNewRequest func(config *Config) (err error)
 	// Config http request config
 	Config struct {
 		Request  *http.Request
@@ -77,6 +79,8 @@ type (
 		OnError OnError
 		// OnDone on done event
 		OnDone OnDone
+		// BeforeNewRequest before new request
+		BeforeNewRequest BeforeNewRequest
 
 		HTTPTrace   *HT.HTTPTrace
 		enableTrace bool
@@ -111,6 +115,8 @@ type (
 		OnError OnError
 		// OnDone on done event
 		OnDone OnDone
+		// BeforeNewRequest before new request
+		BeforeNewRequest BeforeNewRequest
 	}
 )
 

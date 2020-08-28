@@ -148,6 +148,9 @@ func mergeConfig(config *Config, insConfig *InstanceConfig) {
 	if config.OnDone == nil {
 		config.OnDone = insConfig.OnDone
 	}
+	if config.BeforeNewRequest == nil {
+		config.BeforeNewRequest = insConfig.BeforeNewRequest
+	}
 }
 
 // NewInstance create a new instance
@@ -191,6 +194,13 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 
 	if config.TransformRequest == nil {
 		config.TransformRequest = DefaultTransformRequest
+	}
+
+	if config.BeforeNewRequest != nil {
+		err = config.BeforeNewRequest(config)
+		if err != nil {
+			return
+		}
 	}
 
 	req, err := newRequest(config)
