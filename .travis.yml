@@ -5,8 +5,9 @@ go:
   - "1.12"
   - "1.13"
   - "1.14"
+  - "1.15"
   - "master"
 
 script:
-  - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.24.0
+  - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin latest
   - make lint && make test
