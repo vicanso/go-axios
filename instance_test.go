@@ -411,64 +411,104 @@ func TestRequest(t *testing.T) {
 		Adapter: func(config *Config) (resp *Response, err error) {
 			resp = &Response{
 				Config: config,
+				Data: []byte(`{
+					"message": "hello world"
+				}`),
 			}
 			return
 		},
 	})
+	mockMessage := "hello world"
+	type MockResp struct {
+		Message string
+	}
+	mockQuery := make(url.Values)
+	mockQuery.Add("type", "1")
 	t.Run("GET", func(t *testing.T) {
 		assert := assert.New(t)
-		resp, err := mockIns.Get("/")
+		resp, err := mockIns.Get("/", mockQuery)
 		assert.Nil(err)
 		assert.Equal("GET", resp.Config.Method)
-		assert.Equal("/", resp.Config.URL)
+		assert.Equal("/?type=1", resp.Config.URL)
+
+		mockResp := MockResp{}
+		err = mockIns.EnhanceGet(&mockResp, "/")
+		assert.Nil(err)
+		assert.Equal(mockMessage, mockResp.Message)
 	})
 	t.Run("DELETE", func(t *testing.T) {
 		assert := assert.New(t)
-		resp, err := mockIns.Delete("/")
+		resp, err := mockIns.Delete("/", mockQuery)
 		assert.Nil(err)
 		assert.Equal("DELETE", resp.Config.Method)
-		assert.Equal("/", resp.Config.URL)
+		assert.Equal("/?type=1", resp.Config.URL)
+
+		mockResp := MockResp{}
+		err = mockIns.EnhanceDelete(&mockResp, "/")
+		assert.Nil(err)
+		assert.Equal(mockMessage, mockResp.Message)
 	})
 	t.Run("HEAD", func(t *testing.T) {
 		assert := assert.New(t)
-		resp, err := mockIns.Head("/")
+		resp, err := mockIns.Head("/", mockQuery)
 		assert.Nil(err)
 		assert.Equal("HEAD", resp.Config.Method)
-		assert.Equal("/", resp.Config.URL)
+		assert.Equal("/?type=1", resp.Config.URL)
 	})
 	t.Run("OPTIONS", func(t *testing.T) {
 		assert := assert.New(t)
-		resp, err := mockIns.Options("/")
+		resp, err := mockIns.Options("/", mockQuery)
 		assert.Nil(err)
 		assert.Equal("OPTIONS", resp.Config.Method)
-		assert.Equal("/", resp.Config.URL)
+		assert.Equal("/?type=1", resp.Config.URL)
 	})
 	t.Run("POST", func(t *testing.T) {
 		assert := assert.New(t)
 		resp, err := mockIns.Post("/", map[string]string{
 			"a": "1",
-		})
+		}, mockQuery)
 		assert.Nil(err)
 		assert.Equal("POST", resp.Config.Method)
-		assert.Equal("/", resp.Config.URL)
+		assert.Equal("/?type=1", resp.Config.URL)
+
+		mockResp := MockResp{}
+		err = mockIns.EnhancePost(&mockResp, "/", map[string]string{
+			"a": "1",
+		})
+		assert.Nil(err)
+		assert.Equal(mockMessage, mockResp.Message)
 	})
 	t.Run("PUT", func(t *testing.T) {
 		assert := assert.New(t)
 		resp, err := mockIns.Put("/", map[string]string{
 			"a": "1",
-		})
+		}, mockQuery)
 		assert.Nil(err)
 		assert.Equal("PUT", resp.Config.Method)
-		assert.Equal("/", resp.Config.URL)
+		assert.Equal("/?type=1", resp.Config.URL)
+
+		mockResp := MockResp{}
+		err = mockIns.EnhancePut(&mockResp, "/", map[string]string{
+			"a": "1",
+		})
+		assert.Nil(err)
+		assert.Equal(mockMessage, mockResp.Message)
 	})
 	t.Run("PATCH", func(t *testing.T) {
 		assert := assert.New(t)
 		resp, err := mockIns.Patch("/", map[string]string{
 			"a": "1",
-		})
+		}, mockQuery)
 		assert.Nil(err)
 		assert.Equal("PATCH", resp.Config.Method)
-		assert.Equal("/", resp.Config.URL)
+		assert.Equal("/?type=1", resp.Config.URL)
+
+		mockResp := MockResp{}
+		err = mockIns.EnhancePatch(&mockResp, "/", map[string]string{
+			"a": "1",
+		})
+		assert.Nil(err)
+		assert.Equal(mockMessage, mockResp.Message)
 	})
 }
 

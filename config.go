@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/spf13/cast"
 	HT "github.com/vicanso/http-trace"
 )
 
@@ -138,17 +137,41 @@ func (conf *Config) Set(key string, value interface{}) {
 
 // GetString get string value
 func (conf *Config) GetString(key string) string {
-	return cast.ToString(conf.Get(key))
+	v := conf.Get(key)
+	if v == nil {
+		return ""
+	}
+	str, ok := v.(string)
+	if !ok {
+		return ""
+	}
+	return str
 }
 
 // GetBool get bool value
 func (conf *Config) GetBool(key string) bool {
-	return cast.ToBool(conf.Get(key))
+	v := conf.Get(key)
+	if v == nil {
+		return false
+	}
+	b, ok := v.(bool)
+	if !ok {
+		return false
+	}
+	return b
 }
 
 // GetInt get int value
 func (conf *Config) GetInt(key string) int {
-	return cast.ToInt(conf.Get(key))
+	v := conf.Get(key)
+	if v == nil {
+		return 0
+	}
+	i, ok := v.(int)
+	if !ok {
+		return 0
+	}
+	return i
 }
 
 // AddQuery add query

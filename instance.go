@@ -312,6 +312,19 @@ func (ins *Instance) Get(url string, query ...url.Values) (resp *Response, err e
 	return ins.Request(config)
 }
 
+// EnhanceGet http get request and unmarshal response to struct
+func (ins *Instance) EnhanceGet(result interface{}, url string, query ...url.Values) (err error) {
+	resp, err := ins.Get(url, query...)
+	if err != nil {
+		return
+	}
+	err = resp.JSON(result)
+	if err != nil {
+		return
+	}
+	return
+}
+
 // Delete http delete request
 func (ins *Instance) Delete(url string, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
@@ -322,6 +335,19 @@ func (ins *Instance) Delete(url string, query ...url.Values) (resp *Response, er
 		config.Query = query[0]
 	}
 	return ins.Request(config)
+}
+
+// EnhanceDelete http delete request and unmarshal response to struct
+func (ins *Instance) EnhanceDelete(result interface{}, url string, query ...url.Values) (err error) {
+	resp, err := ins.Delete(url, query...)
+	if err != nil {
+		return
+	}
+	err = resp.JSON(result)
+	if err != nil {
+		return
+	}
+	return
 }
 
 // Head http head request
@@ -361,6 +387,19 @@ func (ins *Instance) Post(url string, data interface{}, query ...url.Values) (re
 	return ins.Request(config)
 }
 
+// EnhancePost http post request and unmarshal response to struct
+func (ins *Instance) EnhancePost(result interface{}, url string, data interface{}, query ...url.Values) (err error) {
+	resp, err := ins.Post(url, data, query...)
+	if err != nil {
+		return
+	}
+	err = resp.JSON(result)
+	if err != nil {
+		return
+	}
+	return
+}
+
 // Put http put request
 func (ins *Instance) Put(url string, data interface{}, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
@@ -374,6 +413,19 @@ func (ins *Instance) Put(url string, data interface{}, query ...url.Values) (res
 	return ins.Request(config)
 }
 
+// EnhancePut http put request and unmarshal response to struct
+func (ins *Instance) EnhancePut(result interface{}, url string, data interface{}, query ...url.Values) (err error) {
+	resp, err := ins.Put(url, data, query...)
+	if err != nil {
+		return
+	}
+	err = resp.JSON(result)
+	if err != nil {
+		return
+	}
+	return
+}
+
 // Patch http patch request
 func (ins *Instance) Patch(url string, data interface{}, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
@@ -385,6 +437,19 @@ func (ins *Instance) Patch(url string, data interface{}, query ...url.Values) (r
 		config.Query = query[0]
 	}
 	return ins.Request(config)
+}
+
+// EnhancePatch http patch request and unmarshal response to struct
+func (ins *Instance) EnhancePatch(result interface{}, url string, data interface{}, query ...url.Values) (err error) {
+	resp, err := ins.Patch(url, data, query...)
+	if err != nil {
+		return
+	}
+	err = resp.JSON(result)
+	if err != nil {
+		return
+	}
+	return
 }
 
 // Mock mock response

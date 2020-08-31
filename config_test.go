@@ -34,10 +34,13 @@ func TestConfig(t *testing.T) {
 
 	assert.Equal(strValue, config.Get("s"))
 	assert.Equal(strValue, config.GetString("s"))
+	assert.Equal("", config.GetString("s1"))
 
 	assert.Equal(bValue, config.GetBool("b"))
+	assert.Equal(false, config.GetBool("b1"))
 
 	assert.Equal(iValue, config.GetInt("i"))
+	assert.Equal(0, config.GetInt("i1"))
 
 	queryKey := "a"
 	queryValue := "1"
