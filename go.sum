@@ -10,8 +10,8 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.6.1 h1:hDPOHmpOpP40lSULcqw7IrRb/u7w6RpDC9399XyoNd0=
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
-github.com/vicanso/http-trace v1.0.0 h1:lTBQXCZ3pVbLQE0Ot+M9IIToxRGP2FYKfwnhgVzFVHs=
-github.com/vicanso/http-trace v1.0.0/go.mod h1:pVUOSJJJ9Yj5RMBGuEhWrdwnVn0zg6z82VNawwDAtfs=
+github.com/vicanso/http-trace v1.0.1 h1:1TXOiimBrdM4tjnKnYRea+Hcw4uMbSvFt4WLDSx/j+A=
+github.com/vicanso/http-trace v1.0.1/go.mod h1:YveoMGxvLDDnQG56zNFNkUOOk8aOY8BkNoFVRhC47K0=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/h2non/gock.v1 v1.0.15 h1:SzLqcIlb/fDfg7UvukMpNcWsu7sI5tWwL+KCATZqks0=
 gopkg.in/h2non/gock.v1 v1.0.15/go.mod h1:sX4zAkdYX1TRGJ2JY156cFspQn4yRWn6p9EMdODlynE=
