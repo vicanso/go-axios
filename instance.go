@@ -15,13 +15,10 @@
 package axios
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
-	"strings"
 	"sync/atomic"
 
 	HT "github.com/vicanso/http-trace"
@@ -61,41 +58,19 @@ func newRequest(config *Config) (req *http.Request, err error) {
 	if config.Method == "" {
 		config.Method = http.MethodGet
 	}
-	config.URL = urlJoin(config.BaseURL, config.URL)
 	urlInfo, _ := url.Parse(config.URL)
 	if urlInfo != nil {
 		config.Route = urlInfo.Path
 	}
 
-	if config.Params != nil {
-		for key, value := range config.Params {
-			config.URL = strings.ReplaceAll(config.URL, ":"+key, value)
-		}
+	url := config.getURL()
+
+	r, err := config.getRequestBody()
+	if err != nil {
+		return
 	}
 
-	if config.Query != nil {
-		if strings.Contains(config.URL, "?") {
-			config.URL += ("&" + config.Query.Encode())
-		} else {
-			config.URL += ("?" + config.Query.Encode())
-		}
-	}
-
-	var r io.Reader
-	if config.Body != nil && isNeedToTransformRequestBody(config.Method) {
-		data := config.Body
-		for _, fn := range config.TransformRequest {
-			buf, e := fn(data, config.Headers)
-			if e != nil {
-				err = e
-				return
-			}
-			data = buf
-		}
-		r = bytes.NewReader(data.([]byte))
-	}
-
-	req, err = http.NewRequest(config.Method, config.URL, r)
+	req, err = http.NewRequest(config.Method, url, r)
 	if err != nil {
 		return
 	}
@@ -161,18 +136,6 @@ func NewInstance(config *InstanceConfig) *Instance {
 	return &Instance{
 		Config: config,
 	}
-}
-
-func urlJoin(basicURL, url string) string {
-	if basicURL == "" ||
-		strings.HasPrefix(url, "http://") ||
-		strings.HasPrefix(url, "https://") {
-		return url
-	}
-	if strings.HasSuffix(basicURL, "/") && strings.HasPrefix(url, "/") {
-		return basicURL + url[1:]
-	}
-	return basicURL + url
 }
 
 func (ins *Instance) request(config *Config) (resp *Response, err error) {

@@ -115,9 +115,9 @@ func TestNewRequest(t *testing.T) {
 				"type": "me",
 			},
 		}
-		_, err := newRequest(config)
+		req, err := newRequest(config)
 		assert.Nil(err)
-		assert.Equal("https://aslant.site/user/me", config.URL)
+		assert.Equal("https://aslant.site/user/me", req.URL.String())
 	})
 
 	t.Run("request query", func(t *testing.T) {
@@ -129,17 +129,17 @@ func TestNewRequest(t *testing.T) {
 			URL:   "https://aslant.site/",
 			Query: query,
 		}
-		_, err := newRequest(config)
+		req, err := newRequest(config)
 		assert.Nil(err)
-		assert.Equal("https://aslant.site/?category=a&category=b", config.URL)
+		assert.Equal("https://aslant.site/?category=a&category=b", req.URL.String())
 
 		config = &Config{
 			URL:   "https://aslant.site/?type=vip",
 			Query: query,
 		}
-		_, err = newRequest(config)
+		req, err = newRequest(config)
 		assert.Nil(err)
-		assert.Equal("https://aslant.site/?type=vip&category=a&category=b", config.URL)
+		assert.Equal("https://aslant.site/?type=vip&category=a&category=b", req.URL.String())
 	})
 
 	t.Run("invalid uri error", func(t *testing.T) {
@@ -314,7 +314,7 @@ func TestRequest(t *testing.T) {
 			Adapter: func(config *Config) (resp *Response, err error) {
 				resp = &Response{
 					Status: 200,
-					Data:   []byte(config.URL),
+					Data:   []byte(config.getURL()),
 				}
 				return
 			},
@@ -429,7 +429,7 @@ func TestRequest(t *testing.T) {
 		resp, err := mockIns.Get("/", mockQuery)
 		assert.Nil(err)
 		assert.Equal("GET", resp.Config.Method)
-		assert.Equal("/?type=1", resp.Config.URL)
+		assert.Equal("/?type=1", resp.Request.URL.RequestURI())
 
 		mockResp := MockResp{}
 		err = mockIns.EnhanceGet(&mockResp, "/")
@@ -441,7 +441,7 @@ func TestRequest(t *testing.T) {
 		resp, err := mockIns.Delete("/", mockQuery)
 		assert.Nil(err)
 		assert.Equal("DELETE", resp.Config.Method)
-		assert.Equal("/?type=1", resp.Config.URL)
+		assert.Equal("/?type=1", resp.Request.URL.RequestURI())
 
 		mockResp := MockResp{}
 		err = mockIns.EnhanceDelete(&mockResp, "/")
@@ -453,14 +453,14 @@ func TestRequest(t *testing.T) {
 		resp, err := mockIns.Head("/", mockQuery)
 		assert.Nil(err)
 		assert.Equal("HEAD", resp.Config.Method)
-		assert.Equal("/?type=1", resp.Config.URL)
+		assert.Equal("/?type=1", resp.Request.URL.RequestURI())
 	})
 	t.Run("OPTIONS", func(t *testing.T) {
 		assert := assert.New(t)
 		resp, err := mockIns.Options("/", mockQuery)
 		assert.Nil(err)
 		assert.Equal("OPTIONS", resp.Config.Method)
-		assert.Equal("/?type=1", resp.Config.URL)
+		assert.Equal("/?type=1", resp.Request.URL.RequestURI())
 	})
 	t.Run("POST", func(t *testing.T) {
 		assert := assert.New(t)
@@ -469,7 +469,7 @@ func TestRequest(t *testing.T) {
 		}, mockQuery)
 		assert.Nil(err)
 		assert.Equal("POST", resp.Config.Method)
-		assert.Equal("/?type=1", resp.Config.URL)
+		assert.Equal("/?type=1", resp.Request.URL.RequestURI())
 
 		mockResp := MockResp{}
 		err = mockIns.EnhancePost(&mockResp, "/", map[string]string{
@@ -485,7 +485,7 @@ func TestRequest(t *testing.T) {
 		}, mockQuery)
 		assert.Nil(err)
 		assert.Equal("PUT", resp.Config.Method)
-		assert.Equal("/?type=1", resp.Config.URL)
+		assert.Equal("/?type=1", resp.Request.URL.RequestURI())
 
 		mockResp := MockResp{}
 		err = mockIns.EnhancePut(&mockResp, "/", map[string]string{
@@ -501,7 +501,7 @@ func TestRequest(t *testing.T) {
 		}, mockQuery)
 		assert.Nil(err)
 		assert.Equal("PATCH", resp.Config.Method)
-		assert.Equal("/?type=1", resp.Config.URL)
+		assert.Equal("/?type=1", resp.Request.URL.RequestURI())
 
 		mockResp := MockResp{}
 		err = mockIns.EnhancePatch(&mockResp, "/", map[string]string{

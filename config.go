@@ -15,9 +15,14 @@
 package axios
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	HT "github.com/vicanso/http-trace"
@@ -190,4 +195,74 @@ func (conf *Config) AddParam(key, value string) *Config {
 	}
 	conf.Params[key] = value
 	return conf
+}
+func urlJoin(basicURL, url string) string {
+	if basicURL == "" ||
+		strings.HasPrefix(url, "http://") ||
+		strings.HasPrefix(url, "https://") {
+		return url
+	}
+	if strings.HasSuffix(basicURL, "/") && strings.HasPrefix(url, "/") {
+		return basicURL + url[1:]
+	}
+	return basicURL + url
+}
+
+// getURL generate the url of request config
+func (conf *Config) getURL() string {
+	url := urlJoin(conf.BaseURL, conf.URL)
+	if conf.Params != nil {
+		for key, value := range conf.Params {
+			url = strings.ReplaceAll(url, ":"+key, value)
+		}
+	}
+
+	if conf.Query != nil {
+		if strings.Contains(url, "?") {
+			url += ("&" + conf.Query.Encode())
+		} else {
+			url += ("?" + conf.Query.Encode())
+		}
+	}
+	return url
+}
+
+// getRequestBody get requet body
+func (conf *Config) getRequestBody() (r io.Reader, err error) {
+	if conf.Body == nil || !isNeedToTransformRequestBody(conf.Method) {
+		return
+	}
+	data := conf.Body
+	for _, fn := range conf.TransformRequest {
+		buf, e := fn(data, conf.Headers)
+		if e != nil {
+			err = e
+			return
+		}
+		data = buf
+	}
+	r = bytes.NewReader(data.([]byte))
+	return
+}
+
+// CURL convert config to curl
+func (conf *Config) CURL() string {
+	builder := new(strings.Builder)
+	builder.WriteString(fmt.Sprintf("curl -X%s ", conf.Method))
+
+	r, _ := conf.getRequestBody()
+	if r != nil {
+		buf, _ := ioutil.ReadAll(r)
+		builder.WriteString(fmt.Sprintf(`-d '%s' `, string(buf)))
+	}
+
+	for key, values := range conf.Headers {
+		for _, value := range values {
+			builder.WriteString(fmt.Sprintf(`-H '%s:%s' `, key, value))
+		}
+	}
+
+	builder.WriteString(fmt.Sprintf(`'%s'`, conf.getURL()))
+
+	return builder.String()
 }
