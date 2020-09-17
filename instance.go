@@ -263,6 +263,19 @@ func (ins *Instance) Request(config *Config) (resp *Response, err error) {
 	return
 }
 
+// EnhanceRequest http request and unmarshal response to struct
+func (ins *Instance) EnhanceRequest(config *Config, result interface{}) (err error) {
+	resp, err := ins.Request(config)
+	if err != nil {
+		return
+	}
+	err = resp.JSON(result)
+	if err != nil {
+		return
+	}
+	return
+}
+
 // GetX http get request with context
 func (ins *Instance) GetX(context context.Context, url string, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
