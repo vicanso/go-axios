@@ -58,9 +58,11 @@ func newRequest(config *Config) (req *http.Request, err error) {
 	if config.Method == "" {
 		config.Method = http.MethodGet
 	}
-	urlInfo, _ := url.Parse(config.URL)
-	if urlInfo != nil {
-		config.Route = urlInfo.Path
+	if config.Route == "" {
+		urlInfo, _ := url.Parse(config.URL)
+		if urlInfo != nil {
+			config.Route = urlInfo.Path
+		}
 	}
 
 	url := config.getURL()
@@ -83,7 +85,9 @@ func mergeConfig(config *Config, insConfig *InstanceConfig) {
 	if insConfig == nil {
 		return
 	}
-	config.enableTrace = insConfig.EnableTrace
+	if insConfig.EnableTrace {
+		config.enableTrace = insConfig.EnableTrace
+	}
 	if config.BaseURL == "" {
 		config.BaseURL = insConfig.BaseURL
 	}
