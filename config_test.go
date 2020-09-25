@@ -15,6 +15,7 @@
 package axios
 
 import (
+	"bytes"
 	"net/http"
 	"net/url"
 	"testing"
@@ -53,6 +54,33 @@ func TestConfig(t *testing.T) {
 	paramValue := "2"
 	config.AddParam(paramKey, paramValue)
 	assert.Equal(paramValue, config.Params[paramKey])
+}
+
+func TestAddQuery(t *testing.T) {
+	assert := assert.New(t)
+	config := &Config{}
+	config.AddQuery("a", "1")
+	assert.Equal("1", config.Query.Get("a"))
+}
+
+func TestAddParam(t *testing.T) {
+	assert := assert.New(t)
+	config := &Config{}
+	config.AddParam("a", "1")
+	assert.Equal("1", config.Params["a"])
+}
+
+func TestGetRequestBody(t *testing.T) {
+	assert := assert.New(t)
+
+	r := bytes.NewBufferString("abc")
+	config := &Config{
+		Method: "POST",
+		Body:   r,
+	}
+	body, err := config.getRequestBody()
+	assert.Nil(err)
+	assert.Equal(r, body)
 }
 
 func TestCURL(t *testing.T) {

@@ -17,6 +17,7 @@ package axios
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -241,7 +242,16 @@ func (conf *Config) getRequestBody() (r io.Reader, err error) {
 		}
 		data = buf
 	}
-	r = bytes.NewReader(data.([]byte))
+	r, ok := data.(io.Reader)
+	if ok {
+		return r, nil
+	}
+	buf, ok := data.([]byte)
+	if !ok {
+		err = errors.New("request data type is not supported")
+		return
+	}
+	r = bytes.NewReader(buf)
 	return
 }
 
