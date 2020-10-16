@@ -26,6 +26,8 @@ type (
 		Headers http.Header
 		Config  *Config
 		Request *http.Request
+		// OriginalResponse original http response
+		OriginalResponse *http.Response
 	}
 )
 

@@ -11,7 +11,7 @@ description: axios的相关配置参数
 - `TransformResponse` 响应数据的转换处理，默认的响应转换支持解压`gzip`以及`br`
 - `Headers` 添加公共的请求头
 - `Timeout` 请求响应超时设置
-- `Client` HTTP请求的Client，如果未指定则使用默认值：`http.DefaultCleint`
+- `Client` HTTP请求的Client，如果未指定则使用默认值：`http.DefaultClient`
 - `Adapter` 能自定义HTTP请求的处理函数，主要方便各类mock测试场景
 - `RequestInterceptors` 请求的相关拦截器
 - `ResponseInterceptors` 响应的相关拦截器
@@ -33,7 +33,7 @@ description: axios的相关配置参数
 - `Query` 请求的query参数
 - `Body` 请求的实体数据，用于`POST`，`PUT`以及`PATCH`中。
 - `Timeout` 请求响应超时设置
-- `Client` HTTP请求的Client，如果未指定则使用默认值：`http.DefaultCleint`
+- `Client` HTTP请求的Client，如果未指定则使用默认值：`http.DefaultClient`
 - `Adapter` 能自定义HTTP请求的处理函数，主要方便各类mock测试场景
 - `RequestInterceptors` 请求的相关拦截器
 - `EnableTrace` 是否启用事件跟踪，包括HTTP请求中的DNS解析、HTTP发送、开始接收数据等事件

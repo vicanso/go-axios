@@ -135,8 +135,7 @@ func TestCURL(t *testing.T) {
 		Params: map[string]string{
 			"type": "vip",
 		},
-		Query:  query,
-		Method: "GET",
+		Query: query,
 	}
 	assert.Equal(`curl -XGET 'http://test.com/users/vip?a=1&a=2'`, conf.CURL())
 

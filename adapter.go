@@ -39,8 +39,9 @@ func defaultAdapter(config *Config) (resp *Response, err error) {
 	}
 
 	resp = &Response{
-		Status:  res.StatusCode,
-		Headers: res.Header,
+		Status:           res.StatusCode,
+		Headers:          res.Header,
+		OriginalResponse: res,
 	}
 	// 读取数据
 	defer res.Body.Close()

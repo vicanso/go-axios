@@ -25,7 +25,7 @@ import (
 )
 
 type (
-	// RequestInterceptor requset interceptor
+	// RequestInterceptor request interceptor
 	RequestInterceptor func(config *Config) (err error)
 	// ResponseInterceptor response interceptor
 	ResponseInterceptor func(resp *Response) (err error)
@@ -37,13 +37,11 @@ type (
 	}
 )
 
-var (
-	needToTransformMethods = []string{
-		http.MethodPost,
-		http.MethodPatch,
-		http.MethodPut,
-	}
-)
+var needToTransformMethods = []string{
+	http.MethodPost,
+	http.MethodPatch,
+	http.MethodPut,
+}
 
 func isNeedToTransformRequestBody(method string) bool {
 	for _, value := range needToTransformMethods {
@@ -127,8 +125,8 @@ func mergeConfig(config *Config, insConfig *InstanceConfig) {
 	if config.OnDone == nil {
 		config.OnDone = insConfig.OnDone
 	}
-	if config.BeforeNewRequest == nil {
-		config.BeforeNewRequest = insConfig.BeforeNewRequest
+	if config.OnBeforeNewRequest == nil {
+		config.OnBeforeNewRequest = insConfig.OnBeforeNewRequest
 	}
 }
 
@@ -163,8 +161,8 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 		config.TransformRequest = DefaultTransformRequest
 	}
 
-	if config.BeforeNewRequest != nil {
-		err = config.BeforeNewRequest(config)
+	if config.OnBeforeNewRequest != nil {
+		err = config.OnBeforeNewRequest(config)
 		if err != nil {
 			return
 		}
@@ -273,11 +271,7 @@ func (ins *Instance) EnhanceRequest(config *Config, result interface{}) (err err
 	if err != nil {
 		return
 	}
-	err = resp.JSON(result)
-	if err != nil {
-		return
-	}
-	return
+	return resp.JSON(result)
 }
 
 // GetX http get request with context
@@ -299,11 +293,7 @@ func (ins *Instance) EnhanceGetX(context context.Context, result interface{}, ur
 	if err != nil {
 		return
 	}
-	err = resp.JSON(result)
-	if err != nil {
-		return
-	}
-	return
+	return resp.JSON(result)
 }
 
 // Get http get request
@@ -335,11 +325,7 @@ func (ins *Instance) EnhanceDeleteX(context context.Context, result interface{},
 	if err != nil {
 		return
 	}
-	err = resp.JSON(result)
-	if err != nil {
-		return
-	}
-	return
+	return resp.JSON(result)
 }
 
 // Delete http delete request
@@ -352,7 +338,7 @@ func (ins *Instance) EnhanceDelete(result interface{}, url string, query ...url.
 	return ins.EnhanceDeleteX(context.Background(), result, url, query...)
 }
 
-// HeadX http heade request with context
+// HeadX http head request with context
 func (ins *Instance) HeadX(context context.Context, url string, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		URL:     url,
@@ -408,11 +394,7 @@ func (ins *Instance) EnhancePostX(context context.Context, result interface{}, u
 	if err != nil {
 		return
 	}
-	err = resp.JSON(result)
-	if err != nil {
-		return
-	}
-	return
+	return resp.JSON(result)
 }
 
 // Post http post request
@@ -445,11 +427,7 @@ func (ins *Instance) EnhancePutX(context context.Context, result interface{}, ur
 	if err != nil {
 		return
 	}
-	err = resp.JSON(result)
-	if err != nil {
-		return
-	}
-	return
+	return resp.JSON(result)
 }
 
 // Put http put request
@@ -487,11 +465,7 @@ func (ins *Instance) EnhancePatchX(context context.Context, result interface{}, 
 	if err != nil {
 		return
 	}
-	err = resp.JSON(result)
-	if err != nil {
-		return
-	}
-	return
+	return resp.JSON(result)
 }
 
 // EnhancePatch http patch request and unmarshal response to struct

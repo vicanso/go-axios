@@ -318,7 +318,7 @@ func TestRequest(t *testing.T) {
 				}
 				return
 			},
-			BeforeNewRequest: func(conf *Config) error {
+			OnBeforeNewRequest: func(conf *Config) error {
 				conf.BaseURL = "http://www.baidu.com"
 				return nil
 			},

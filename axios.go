@@ -27,7 +27,7 @@ type (
 )
 
 var (
-	defaultIns *Instance
+	defaultIns = NewInstance(nil)
 	// default json marshal
 	jsonMarshal = json.Marshal
 	// default json unmarshal
@@ -42,10 +42,6 @@ func SetJSONMarshal(fn JSONMarshal) {
 // SetJSONUnmarshal set json unmarshal function
 func SetJSONUnmarshal(fn JSONUnmarshal) {
 	jsonUnmarshal = fn
-}
-
-func init() {
-	defaultIns = NewInstance(nil)
 }
 
 // Request http request by default instance
@@ -88,7 +84,7 @@ func Patch(url string, data interface{}, query ...url.Values) (resp *Response, e
 	return defaultIns.Patch(url, data, query...)
 }
 
-// GetDefaultInstance get default instanc
+// GetDefaultInstance get default instance
 func GetDefaultInstance() *Instance {
 	return defaultIns
 }

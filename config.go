@@ -34,8 +34,8 @@ type (
 	OnError func(err error, config *Config) (newErr error)
 	// OnDone on done event
 	OnDone func(config *Config, resp *Response, err error)
-	// BeforeNewRequest before new request
-	BeforeNewRequest func(config *Config) (err error)
+	// OnBeforeNewRequest on request create event
+	OnBeforeNewRequest func(config *Config) (err error)
 	// Config http request config
 	Config struct {
 		Request  *http.Request
@@ -48,15 +48,15 @@ type (
 		Method string
 		// BaseURL http request base url
 		BaseURL string
-		// TransformRequest transform requset body
+		// TransformRequest transform request body
 		TransformRequest []TransformRequest
-		// TransformResponse transofrm response body
+		// TransformResponse transform response body
 		TransformResponse []TransformResponse
 		// Headers  custom headers for request
 		Headers http.Header
 		// Params params for request route
 		Params map[string]string
-		// Query query for requset
+		// Query query for request
 		Query url.Values
 
 		// Body the request body
@@ -73,7 +73,7 @@ type (
 
 		// Client http client
 		Client *http.Client
-		// Adapter custom handling of requset
+		// Adapter custom handling of request
 		Adapter Adapter
 		// RequestInterceptors request interceptor list
 		RequestInterceptors []RequestInterceptor
@@ -84,8 +84,8 @@ type (
 		OnError OnError
 		// OnDone on done event
 		OnDone OnDone
-		// BeforeNewRequest before new request
-		BeforeNewRequest BeforeNewRequest
+		// OnBeforeNewRequest on request create event
+		OnBeforeNewRequest OnBeforeNewRequest
 
 		HTTPTrace   *HT.HTTPTrace
 		enableTrace bool
@@ -95,9 +95,9 @@ type (
 	InstanceConfig struct {
 		// BaseURL http request base url
 		BaseURL string
-		// TransformRequest transform requset body
+		// TransformRequest transform request body
 		TransformRequest []TransformRequest
-		// TransformResponse transofrm response body
+		// TransformResponse transform response body
 		TransformResponse []TransformResponse
 		// Headers  custom headers for request
 		Headers http.Header
@@ -120,8 +120,8 @@ type (
 		OnError OnError
 		// OnDone on done event
 		OnDone OnDone
-		// BeforeNewRequest before new request
-		BeforeNewRequest BeforeNewRequest
+		// OnBeforeNewRequest on request create event
+		OnBeforeNewRequest OnBeforeNewRequest
 	}
 )
 
@@ -147,10 +147,7 @@ func (conf *Config) GetString(key string) string {
 	if v == nil {
 		return ""
 	}
-	str, ok := v.(string)
-	if !ok {
-		return ""
-	}
+	str, _ := v.(string)
 	return str
 }
 
@@ -160,10 +157,7 @@ func (conf *Config) GetBool(key string) bool {
 	if v == nil {
 		return false
 	}
-	b, ok := v.(bool)
-	if !ok {
-		return false
-	}
+	b, _ := v.(bool)
 	return b
 }
 
@@ -173,10 +167,7 @@ func (conf *Config) GetInt(key string) int {
 	if v == nil {
 		return 0
 	}
-	i, ok := v.(int)
-	if !ok {
-		return 0
-	}
+	i, _ := v.(int)
 	return i
 }
 
@@ -228,7 +219,7 @@ func (conf *Config) getURL() string {
 	return url
 }
 
-// getRequestBody get requet body
+// getRequestBody get request body
 func (conf *Config) getRequestBody() (r io.Reader, err error) {
 	if conf.Body == nil || !isNeedToTransformRequestBody(conf.Method) {
 		return
@@ -258,7 +249,11 @@ func (conf *Config) getRequestBody() (r io.Reader, err error) {
 // CURL convert config to curl
 func (conf *Config) CURL() string {
 	builder := new(strings.Builder)
-	builder.WriteString(fmt.Sprintf("curl -X%s ", conf.Method))
+	method := conf.Method
+	if method == "" {
+		method = http.MethodGet
+	}
+	builder.WriteString(fmt.Sprintf("curl -X%s ", method))
 
 	r, _ := conf.getRequestBody()
 	if r != nil {

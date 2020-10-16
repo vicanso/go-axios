@@ -50,7 +50,7 @@ func createEncodingTransform(encoding string, fn newReader) TransformResponse {
 		if err != nil {
 			return
 		}
-		// 完成后删除enconding以及content-length
+		// 完成后删除encoding以及content-length
 		headers.Del(headerContentEncoding)
 		headers.Del(headerContentLength)
 		return
