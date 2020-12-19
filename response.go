@@ -21,11 +21,12 @@ import (
 type (
 	// Response http response
 	Response struct {
-		Data    []byte
-		Status  int
-		Headers http.Header
-		Config  *Config
-		Request *http.Request
+		UnmarshalData interface{}
+		Data          []byte
+		Status        int
+		Headers       http.Header
+		Config        *Config
+		Request       *http.Request
 		// OriginalResponse original http response
 		OriginalResponse *http.Response
 	}
@@ -34,5 +35,8 @@ type (
 // JSON convert json data
 func (resp *Response) JSON(v interface{}) (err error) {
 	err = jsonUnmarshal(resp.Data, v)
+	if err == nil {
+		resp.UnmarshalData = v
+	}
 	return
 }

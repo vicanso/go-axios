@@ -125,6 +125,8 @@ type (
 	}
 )
 
+var ErrRequestDataTypeInvalid = errors.New("request data type is not supported")
+
 // Get get value from config
 func (conf *Config) Get(key string) interface{} {
 	if conf.data == nil {
@@ -239,7 +241,7 @@ func (conf *Config) getRequestBody() (r io.Reader, err error) {
 	}
 	buf, ok := data.([]byte)
 	if !ok {
-		err = errors.New("request data type is not supported")
+		err = ErrRequestDataTypeInvalid
 		return
 	}
 	r = bytes.NewReader(buf)

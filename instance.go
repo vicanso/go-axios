@@ -250,8 +250,8 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 	return
 }
 
-// Request http request
-func (ins *Instance) Request(config *Config) (resp *Response, err error) {
+// doRequest do http request
+func (ins *Instance) doRequest(config *Config, result interface{}) (resp *Response, err error) {
 	resp, err = ins.request(config)
 	if err != nil && config.OnError != nil {
 		newErr := config.OnError(err, config)
@@ -259,23 +259,35 @@ func (ins *Instance) Request(config *Config) (resp *Response, err error) {
 			err = newErr
 		}
 	}
+	// 如果没有出错，有响应结果，而且指定了result(需要unmarshal)
+	if err == nil &&
+		resp != nil &&
+		result != nil {
+		err = resp.JSON(result)
+	}
 	if config.OnDone != nil {
 		config.OnDone(config, resp, err)
 	}
 	return
 }
 
+// Request http request
+func (ins *Instance) Request(config *Config) (resp *Response, err error) {
+	resp, err = ins.doRequest(config, nil)
+	return
+}
+
 // EnhanceRequest http request and unmarshal response to struct
 func (ins *Instance) EnhanceRequest(config *Config, result interface{}) (err error) {
-	resp, err := ins.Request(config)
+	_, err = ins.doRequest(config, result)
 	if err != nil {
 		return
 	}
-	return resp.JSON(result)
+	return
 }
 
-// GetX http get request with context
-func (ins *Instance) GetX(context context.Context, url string, query ...url.Values) (resp *Response, err error) {
+// getX http get request with context
+func (ins *Instance) getX(context context.Context, result interface{}, url string, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		Context: context,
 		URL:     url,
@@ -284,30 +296,39 @@ func (ins *Instance) GetX(context context.Context, url string, query ...url.Valu
 	if len(query) != 0 {
 		config.Query = query[0]
 	}
-	return ins.Request(config)
+	return ins.doRequest(config, result)
+}
+
+// GetX http get request with context
+func (ins *Instance) GetX(context context.Context, url string, query ...url.Values) (resp *Response, err error) {
+	return ins.getX(context, nil, url, query...)
 }
 
 // EnhanceGetX http get request with context and unmarshal response to struct
 func (ins *Instance) EnhanceGetX(context context.Context, result interface{}, url string, query ...url.Values) (err error) {
-	resp, err := ins.GetX(context, url, query...)
+	_, err = ins.getX(context, result, url, query...)
 	if err != nil {
 		return
 	}
-	return resp.JSON(result)
+	return
 }
 
 // Get http get request
 func (ins *Instance) Get(url string, query ...url.Values) (resp *Response, err error) {
-	return ins.GetX(context.Background(), url, query...)
+	return ins.getX(context.Background(), nil, url, query...)
 }
 
 // EnhanceGetX http get request with context and unmarshal response to struct
 func (ins *Instance) EnhanceGet(result interface{}, url string, query ...url.Values) (err error) {
-	return ins.EnhanceGetX(context.Background(), result, url, query...)
+	_, err = ins.getX(context.Background(), result, url, query...)
+	if err != nil {
+		return
+	}
+	return
 }
 
-// DeleteX http delete request with context
-func (ins *Instance) DeleteX(context context.Context, url string, query ...url.Values) (resp *Response, err error) {
+// deleteX http delete request with context
+func (ins *Instance) deleteX(context context.Context, result interface{}, url string, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		Context: context,
 		URL:     url,
@@ -316,30 +337,39 @@ func (ins *Instance) DeleteX(context context.Context, url string, query ...url.V
 	if len(query) != 0 {
 		config.Query = query[0]
 	}
-	return ins.Request(config)
+	return ins.doRequest(config, result)
+}
+
+// DeleteX http delete request with context
+func (ins *Instance) DeleteX(context context.Context, url string, query ...url.Values) (resp *Response, err error) {
+	return ins.deleteX(context, nil, url, query...)
 }
 
 // EnhanceDeleteX http delete request with context and unmarshal response to struct
 func (ins *Instance) EnhanceDeleteX(context context.Context, result interface{}, url string, query ...url.Values) (err error) {
-	resp, err := ins.DeleteX(context, url, query...)
+	_, err = ins.deleteX(context, result, url, query...)
 	if err != nil {
 		return
 	}
-	return resp.JSON(result)
+	return
 }
 
 // Delete http delete request
 func (ins *Instance) Delete(url string, query ...url.Values) (resp *Response, err error) {
-	return ins.DeleteX(context.Background(), url, query...)
+	return ins.deleteX(context.Background(), nil, url, query...)
 }
 
 // EnhanceDelete http delete request and unmarshal response to struct
 func (ins *Instance) EnhanceDelete(result interface{}, url string, query ...url.Values) (err error) {
-	return ins.EnhanceDeleteX(context.Background(), result, url, query...)
+	_, err = ins.deleteX(context.Background(), result, url, query...)
+	if err != nil {
+		return
+	}
+	return
 }
 
-// HeadX http head request with context
-func (ins *Instance) HeadX(context context.Context, url string, query ...url.Values) (resp *Response, err error) {
+// headX http head request with context
+func (ins *Instance) headX(context context.Context, result interface{}, url string, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		URL:     url,
 		Method:  http.MethodHead,
@@ -348,16 +378,21 @@ func (ins *Instance) HeadX(context context.Context, url string, query ...url.Val
 	if len(query) != 0 {
 		config.Query = query[0]
 	}
-	return ins.Request(config)
+	return ins.doRequest(config, result)
+}
+
+// HeadX http head request with context
+func (ins *Instance) HeadX(context context.Context, url string, query ...url.Values) (resp *Response, err error) {
+	return ins.headX(context, nil, url, query...)
 }
 
 // Head http head request
 func (ins *Instance) Head(url string, query ...url.Values) (resp *Response, err error) {
-	return ins.HeadX(context.Background(), url, query...)
+	return ins.headX(context.Background(), nil, url, query...)
 }
 
-// OptionsX http options request with context
-func (ins *Instance) OptionsX(context context.Context, url string, query ...url.Values) (resp *Response, err error) {
+// optionsX http options request with context
+func (ins *Instance) optionsX(context context.Context, result interface{}, url string, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		Context: context,
 		URL:     url,
@@ -366,16 +401,21 @@ func (ins *Instance) OptionsX(context context.Context, url string, query ...url.
 	if len(query) != 0 {
 		config.Query = query[0]
 	}
-	return ins.Request(config)
+	return ins.doRequest(config, result)
+}
+
+// OptionsX http options request with context
+func (ins *Instance) OptionsX(context context.Context, url string, query ...url.Values) (resp *Response, err error) {
+	return ins.optionsX(context, nil, url, query...)
 }
 
 // Options http options request
 func (ins *Instance) Options(url string, query ...url.Values) (resp *Response, err error) {
-	return ins.OptionsX(context.Background(), url, query...)
+	return ins.optionsX(context.Background(), nil, url, query...)
 }
 
-// PostX http post request with context
-func (ins *Instance) PostX(context context.Context, url string, data interface{}, query ...url.Values) (resp *Response, err error) {
+// postX http post request with context
+func (ins *Instance) postX(context context.Context, result interface{}, url string, data interface{}, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		Context: context,
 		URL:     url,
@@ -385,30 +425,39 @@ func (ins *Instance) PostX(context context.Context, url string, data interface{}
 	if len(query) != 0 {
 		config.Query = query[0]
 	}
-	return ins.Request(config)
+	return ins.doRequest(config, result)
+}
+
+// PostX http post request with context
+func (ins *Instance) PostX(context context.Context, url string, data interface{}, query ...url.Values) (resp *Response, err error) {
+	return ins.postX(context, nil, url, data, query...)
 }
 
 // EnhancePostX http post request with context and unmarshal response to struct
 func (ins *Instance) EnhancePostX(context context.Context, result interface{}, url string, data interface{}, query ...url.Values) (err error) {
-	resp, err := ins.PostX(context, url, data, query...)
+	_, err = ins.postX(context, result, url, data, query...)
 	if err != nil {
 		return
 	}
-	return resp.JSON(result)
+	return
 }
 
 // Post http post request
 func (ins *Instance) Post(url string, data interface{}, query ...url.Values) (resp *Response, err error) {
-	return ins.PostX(context.Background(), url, data, query...)
+	return ins.postX(context.Background(), nil, url, data, query...)
 }
 
 // EnhancePost http post request and unmarshal response to struct
 func (ins *Instance) EnhancePost(result interface{}, url string, data interface{}, query ...url.Values) (err error) {
-	return ins.EnhancePostX(context.Background(), result, url, data, query...)
+	_, err = ins.postX(context.Background(), result, url, data, query...)
+	if err != nil {
+		return
+	}
+	return
 }
 
-// PutX http put request with context
-func (ins *Instance) PutX(context context.Context, url string, data interface{}, query ...url.Values) (resp *Response, err error) {
+// putX http put request with context
+func (ins *Instance) putX(context context.Context, result interface{}, url string, data interface{}, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		Context: context,
 		URL:     url,
@@ -418,30 +467,39 @@ func (ins *Instance) PutX(context context.Context, url string, data interface{},
 	if len(query) != 0 {
 		config.Query = query[0]
 	}
-	return ins.Request(config)
+	return ins.doRequest(config, result)
+}
+
+// PutX http put request with context
+func (ins *Instance) PutX(context context.Context, url string, data interface{}, query ...url.Values) (resp *Response, err error) {
+	return ins.putX(context, nil, url, data, query...)
 }
 
 // EnhancePutX http put request with context and unmarshal response to struct
 func (ins *Instance) EnhancePutX(context context.Context, result interface{}, url string, data interface{}, query ...url.Values) (err error) {
-	resp, err := ins.PutX(context, url, data, query...)
+	_, err = ins.putX(context, result, url, data, query...)
 	if err != nil {
 		return
 	}
-	return resp.JSON(result)
+	return
 }
 
 // Put http put request
 func (ins *Instance) Put(url string, data interface{}, query ...url.Values) (resp *Response, err error) {
-	return ins.PutX(context.Background(), url, data, query...)
+	return ins.putX(context.Background(), nil, url, data, query...)
 }
 
 // EnhancePut http put request and unmarshal response to struct
 func (ins *Instance) EnhancePut(result interface{}, url string, data interface{}, query ...url.Values) (err error) {
-	return ins.EnhancePutX(context.Background(), result, url, data, query...)
+	_, err = ins.putX(context.Background(), result, url, data, query...)
+	if err != nil {
+		return
+	}
+	return
 }
 
-// PatchX http patch request with context
-func (ins *Instance) PatchX(context context.Context, url string, data interface{}, query ...url.Values) (resp *Response, err error) {
+// patchX http patch request with context
+func (ins *Instance) patchX(context context.Context, result interface{}, url string, data interface{}, query ...url.Values) (resp *Response, err error) {
 	config := &Config{
 		Context: context,
 		URL:     url,
@@ -451,26 +509,35 @@ func (ins *Instance) PatchX(context context.Context, url string, data interface{
 	if len(query) != 0 {
 		config.Query = query[0]
 	}
-	return ins.Request(config)
+	return ins.doRequest(config, result)
+}
+
+// PatchX http patch request with context
+func (ins *Instance) PatchX(context context.Context, url string, data interface{}, query ...url.Values) (resp *Response, err error) {
+	return ins.patchX(context, nil, url, data, query...)
 }
 
 // Patch http patch request
 func (ins *Instance) Patch(url string, data interface{}, query ...url.Values) (resp *Response, err error) {
-	return ins.PatchX(context.Background(), url, data, query...)
+	return ins.patchX(context.Background(), nil, url, data, query...)
 }
 
 // EnhancePatchX http patch request with context and unmarshal response to struct
 func (ins *Instance) EnhancePatchX(context context.Context, result interface{}, url string, data interface{}, query ...url.Values) (err error) {
-	resp, err := ins.PatchX(context, url, data, query...)
+	_, err = ins.patchX(context, result, url, data, query...)
 	if err != nil {
 		return
 	}
-	return resp.JSON(result)
+	return
 }
 
 // EnhancePatch http patch request and unmarshal response to struct
 func (ins *Instance) EnhancePatch(result interface{}, url string, data interface{}, query ...url.Values) (err error) {
-	return ins.EnhancePatchX(context.Background(), result, url, data, query...)
+	_, err = ins.patchX(context.Background(), result, url, data, query...)
+	if err != nil {
+		return
+	}
+	return
 }
 
 // Mock mock response

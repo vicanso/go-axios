@@ -21,6 +21,7 @@ func main() {
 
 	// 自定义instance，可指定client、interceptor等
 	ins := axios.NewInstance(&axios.InstanceConfig{
+		BaseURL:     "https://www.baidu.com",
 		EnableTrace: true,
 		Client: &http.Client{
 			Transport: &http.Transport{
@@ -28,8 +29,14 @@ func main() {
 			},
 		},
 		Timeout: 10 * time.Second,
+		// OnDone 无论成功或失败均会调用，可在此处添加统计
+		OnDone: func(config *axios.Config, resp *axios.Response, err error) {
+			fmt.Println(config)
+			fmt.Println(resp)
+			fmt.Println(err)
+		},
 	})
-	resp, err = ins.Get("https://www.baidu.com/")
+	resp, err = ins.Get("/")
 	if err != nil {
 		panic(err)
 	}

@@ -16,7 +16,9 @@ package axios
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"testing"
@@ -85,431 +87,694 @@ func TestIsNeedToTransformRequestBody(t *testing.T) {
 }
 
 func TestNewRequest(t *testing.T) {
-	t.Run("new get request", func(t *testing.T) {
-		assert := assert.New(t)
-		method := "GET"
-		url := "https://aslant.site/"
-		req, err := newRequest(&Config{
-			URL: url,
-		})
-		assert.Nil(err)
-		assert.Equal(method, req.Method)
-		assert.Equal(url, req.URL.String())
-	})
 
-	t.Run("request route", func(t *testing.T) {
-		assert := assert.New(t)
-		config := &Config{
-			URL: "https://aslant.site/user/:type",
-		}
-		_, err := newRequest(config)
-		assert.Nil(err)
-		assert.Equal("/user/:type", config.Route)
-	})
+	assert := assert.New(t)
 
-	t.Run("request params", func(t *testing.T) {
-		assert := assert.New(t)
-		config := &Config{
-			URL: "https://aslant.site/user/:type",
-			Params: map[string]string{
-				"type": "me",
+	postBody := []byte("abcd")
+	tests := []struct {
+		config   *Config
+		method   string
+		url      string
+		route    string
+		err      error
+		postBody []byte
+	}{
+		{
+			config: &Config{
+				URL: "https://aslant.site/",
 			},
-		}
-		req, err := newRequest(config)
-		assert.Nil(err)
-		assert.Equal("https://aslant.site/user/me", req.URL.String())
-	})
-
-	t.Run("request query", func(t *testing.T) {
-		assert := assert.New(t)
-		query := make(url.Values)
-		query.Add("category", "a")
-		query.Add("category", "b")
-		config := &Config{
-			URL:   "https://aslant.site/",
-			Query: query,
-		}
-		req, err := newRequest(config)
-		assert.Nil(err)
-		assert.Equal("https://aslant.site/?category=a&category=b", req.URL.String())
-
-		config = &Config{
-			URL:   "https://aslant.site/?type=vip",
-			Query: query,
-		}
-		req, err = newRequest(config)
-		assert.Nil(err)
-		assert.Equal("https://aslant.site/?type=vip&category=a&category=b", req.URL.String())
-	})
-
-	t.Run("invalid uri error", func(t *testing.T) {
-		assert := assert.New(t)
-		_, err := newRequest(&Config{
-			Method: "测试",
-		})
-		assert.NotNil(`net/http: invalid method "测试"`, err.Error())
-	})
-
-	t.Run("new post request", func(t *testing.T) {
-		assert := assert.New(t)
-		method := "POST"
-		postBody := []byte("abcd")
-		url := "https://aslant.site/"
-		req, err := newRequest(&Config{
-			Method: method,
-			URL:    url,
-			Body:   postBody,
-			TransformRequest: []TransformRequest{
-				func(body interface{}, _ http.Header) (data interface{}, err error) {
-					assert.Equal(postBody, body)
-					return body, nil
+			method: "GET",
+			url:    "https://aslant.site/",
+			route:  "/",
+		},
+		{
+			config: &Config{
+				URL: "https://aslant.site/user/:type",
+				Params: map[string]string{
+					"type": "me",
 				},
 			},
-		})
-		assert.Nil(err)
-		assert.Equal(method, req.Method)
-		assert.Equal(url, req.URL.String())
-		assert.NotNil(req.Body)
-	})
+			method: "GET",
+			url:    "https://aslant.site/user/me",
+			route:  "/user/:type",
+		},
+		{
+			config: &Config{
+				URL: "https://aslant.site/",
+				Query: url.Values{
+					"type": []string{
+						"vip",
+					},
+					"category": []string{
+						"a",
+						"b",
+					},
+				},
+			},
+			method: "GET",
+			url:    "https://aslant.site/?category=a&category=b&type=vip",
+			route:  "/",
+		},
+		{
+			config: &Config{
+				Method: "POST",
+				URL:    "https://aslant.site/",
+				Body:   postBody,
+				TransformRequest: []TransformRequest{
+					func(body interface{}, _ http.Header) (data interface{}, err error) {
+						assert.Equal(postBody, body)
+						return body, nil
+					},
+				},
+			},
+			method:   "POST",
+			url:      "https://aslant.site/",
+			postBody: postBody,
+			route:    "/",
+		},
+		{
+			config: &Config{
+				Method: "测试",
+			},
+			err: errors.New(`net/http: invalid method "测试"`),
+		},
+	}
+
+	for _, tt := range tests {
+		req, err := newRequest(tt.config)
+		assert.Equal(tt.err, err)
+		if err == nil {
+			assert.Equal(tt.method, req.Method)
+			assert.Equal(tt.url, req.URL.String())
+			assert.Equal(tt.route, tt.config.Route)
+			if tt.postBody != nil {
+				buf, _ := ioutil.ReadAll(req.Body)
+				assert.Equal(tt.postBody, buf)
+			}
+		}
+	}
 }
 
-func TestRequest(t *testing.T) {
+func TestRequestInterceptor(t *testing.T) {
 
-	t.Run("requset", func(t *testing.T) {
-		assert := assert.New(t)
-		ins := NewInstance(nil)
-		mockResp := &Response{}
-		method := "GET"
-		query := make(url.Values)
-		query.Add("category", "a")
-		query.Add("category", "b")
-		header := make(http.Header)
-		header.Set("X-Request-ID", "1")
-		conf := &Config{
-			URL:   "https://aslant.site/users/:type",
-			Query: query,
-			Params: map[string]string{
-				"type": "me",
+	assert := assert.New(t)
+	customErr := errors.New("custom error")
+	newCustomErr := errors.New("new custom error")
+
+	requestIDKey := "X-Request-ID"
+	mockResp := &Response{
+		Data: []byte("abc"),
+	}
+	mockGzipData := []byte("gzip data")
+	mockAdapter := func(config *Config) (resp *Response, err error) {
+		return mockResp, nil
+	}
+	tests := []struct {
+		instanceConfig *InstanceConfig
+		config         *Config
+		resp           *Response
+		err            error
+		url            string
+		requestID      string
+	}{
+		{
+			config: &Config{
+				URL: "https://aslant.site/users/:type",
+				Query: url.Values{
+					"category": []string{
+						"a",
+						"b",
+					},
+				},
+				Params: map[string]string{
+					"type": "me",
+				},
+				Headers: http.Header{
+					requestIDKey: []string{
+						"1",
+					},
+				},
+				Timeout:     5 * time.Millisecond,
+				enableTrace: true,
+				Adapter:     mockAdapter,
 			},
-			Headers:     header,
-			Timeout:     5 * time.Millisecond,
-			enableTrace: true,
-		}
+			resp:      mockResp,
+			url:       "https://aslant.site/users/me?category=a&category=b",
+			requestID: "1",
+		},
+		// request interceptors(error)
+		{
+			instanceConfig: &InstanceConfig{
+				BaseURL: "https://aslant.site/",
+				RequestInterceptors: []RequestInterceptor{
+					func(config *Config) (err error) {
+						if config.Route == "/error" {
+							err = customErr
+							return
+						}
+						config.Request.Header.Set(requestIDKey, "1")
+						return
+					},
+				},
+			},
+			config: &Config{
+				URL: "/error",
+			},
+			err: customErr,
+		},
+		// request interceptors (pass)
+		{
+			instanceConfig: &InstanceConfig{
+				BaseURL: "https://aslant.site/",
+				RequestInterceptors: []RequestInterceptor{
+					func(config *Config) (err error) {
+						if config.Route == "/error" {
+							err = customErr
+							return
+						}
+						config.Request.Header.Set(requestIDKey, "1")
+						return
+					},
+				},
+			},
+			config: &Config{
+				URL:     "/",
+				Adapter: mockAdapter,
+			},
+			requestID: "1",
+			url:       "https://aslant.site/",
+			resp:      mockResp,
+		},
+		// transform response
+		{
+			instanceConfig: &InstanceConfig{
+				BaseURL: "https://aslant.site/",
+				Adapter: func(config *Config) (resp *Response, err error) {
+					resp = &Response{}
+					if config.Route == "/" {
+						resp = mockResp
+						return
+					}
 
-		conf.Adapter = func(config *Config) (resp *Response, err error) {
-			req := config.Request
-			assert.Equal(method, req.Method)
-			assert.Equal("https://aslant.site/users/me?category=a&category=b", req.URL.String())
-			assert.Equal("/users/:type", config.Route)
-			assert.Equal("1", req.Header.Get("X-Request-ID"))
-			assert.Equal(UserAgent, req.Header.Get(headerUserAgent))
-			assert.Equal(defaultAcceptEncoding, req.Header.Get(headerAcceptEncoding))
-			resp = mockResp
-			return
-		}
-		resp, err := ins.Request(conf)
-		assert.Nil(err)
-		assert.Equal(mockResp, resp)
-	})
-
-	t.Run("request interceptors", func(t *testing.T) {
-		assert := assert.New(t)
-		customErr := errors.New("custom error")
-		ins := NewInstance(&InstanceConfig{
-			BaseURL: "https://aslant.site/",
-			RequestInterceptors: []RequestInterceptor{
-				func(config *Config) (err error) {
-					if config.Route == "/error" {
+					return
+				},
+				TransformResponse: []TransformResponse{
+					func(body []byte, headers http.Header) (data []byte, err error) {
+						if bytes.Equal(body, mockResp.Data) {
+							data = mockGzipData
+							return
+						}
 						err = customErr
 						return
-					}
-					config.Request.Header.Set("X-Request-ID", "1")
-					return
+					},
 				},
 			},
-			Adapter: func(config *Config) (resp *Response, err error) {
-				resp = &Response{
-					Request: config.Request,
-				}
-				return
+			config: &Config{
+				URL: "/",
 			},
-		})
-		resp, err := ins.Get("/")
-		assert.Nil(err)
-		assert.Equal("1", resp.Request.Header.Get("X-Request-ID"))
-
-		_, err = ins.Get("/error")
-		assert.Equal(customErr, err)
-	})
-
-	t.Run("transform response", func(t *testing.T) {
-		assert := assert.New(t)
-		originalData := []byte("abcd")
-		mockGzipData := []byte("gzip data")
-		customErr := errors.New("custom error")
-		ins := NewInstance(&InstanceConfig{
-			BaseURL: "https://aslant.site/",
-			Adapter: func(config *Config) (resp *Response, err error) {
-				resp = &Response{}
-				if config.Route == "/" {
-					resp.Data = originalData
-				}
-
-				return
+			resp: &Response{
+				Data: mockGzipData,
 			},
-			TransformResponse: []TransformResponse{
-				func(body []byte, headers http.Header) (data []byte, err error) {
-					if bytes.Equal(body, originalData) {
-						data = mockGzipData
+			url: "https://aslant.site/",
+		},
+
+		// transform response (error)
+		{
+			instanceConfig: &InstanceConfig{
+				BaseURL: "https://aslant.site/",
+				Adapter: func(config *Config) (resp *Response, err error) {
+					resp = &Response{}
+					if config.Route == "/" {
+						resp = mockResp
 						return
 					}
-					err = customErr
+
 					return
 				},
-			},
-		})
-		resp, err := ins.Get("/")
-		assert.Nil(err)
-		assert.Equal(mockGzipData, resp.Data)
-
-		_, err = ins.Get("/error")
-		assert.Equal(customErr, err)
-	})
-
-	t.Run("response interceptors", func(t *testing.T) {
-		assert := assert.New(t)
-		mockData := []byte("abcd")
-		customErr := errors.New("custom error")
-		ins := NewInstance(&InstanceConfig{
-			BaseURL: "https://aslant.site/",
-			Adapter: func(config *Config) (resp *Response, err error) {
-				resp = &Response{
-					Config: config,
-				}
-				return
-			},
-			ResponseInterceptors: []ResponseInterceptor{
-				func(resp *Response) (err error) {
-					if resp.Config.Route == "/error" {
+				TransformResponse: []TransformResponse{
+					func(body []byte, headers http.Header) (data []byte, err error) {
+						if bytes.Equal(body, mockResp.Data) {
+							data = mockGzipData
+							return
+						}
 						err = customErr
 						return
-					}
-					resp.Data = mockData
-					return
+					},
 				},
 			},
-		})
-		resp, err := ins.Get("/")
-		assert.Nil(err)
-		assert.Equal(mockData, resp.Data)
-
-		_, err = ins.Get("/error")
-		assert.Equal(customErr, err)
-	})
-
-	t.Run("before new request", func(t *testing.T) {
-		assert := assert.New(t)
-		ins := NewInstance(&InstanceConfig{
-			BaseURL: "https://aslant.site/",
-			Adapter: func(config *Config) (resp *Response, err error) {
-				resp = &Response{
-					Status: 200,
-					Data:   []byte(config.getURL()),
-				}
-				return
+			config: &Config{
+				URL: "/error",
 			},
-			OnBeforeNewRequest: func(conf *Config) error {
-				conf.BaseURL = "http://www.baidu.com"
-				return nil
-			},
-		})
-		resp, err := ins.Get("/")
-		assert.Nil(err)
-		assert.Equal("http://www.baidu.com/", string(resp.Data))
-	})
-
-	t.Run("on error", func(t *testing.T) {
-		assert := assert.New(t)
-		done := false
-		customErr := errors.New("custom error")
-		newCustomErr := errors.New("new custom error")
-		ins := NewInstance(&InstanceConfig{
-			BaseURL: "https://aslant.site/",
-			Adapter: func(config *Config) (resp *Response, err error) {
-				resp = &Response{
-					Status: 200,
-				}
-				err = customErr
-				return
-			},
-			OnError: func(err error, config *Config) error {
-				done = true
-				return newCustomErr
-			},
-		})
-
-		_, err := ins.Get("/")
-		assert.True(done)
-		assert.Equal(newCustomErr, err)
-	})
-	t.Run("on done", func(t *testing.T) {
-		t.Run("request success", func(t *testing.T) {
-			assert := assert.New(t)
-			done := false
-			ins := NewInstance(&InstanceConfig{
+			err: customErr,
+		},
+		// response interceptors
+		{
+			instanceConfig: &InstanceConfig{
 				BaseURL: "https://aslant.site/",
 				Adapter: func(config *Config) (resp *Response, err error) {
 					resp = &Response{
-						Status: 200,
+						Config: config,
 					}
 					return
 				},
-				OnDone: func(config *Config, resp *Response, err error) {
-					assert.Nil(err)
-					assert.Equal(200, resp.Status)
-					done = true
+				ResponseInterceptors: []ResponseInterceptor{
+					func(resp *Response) (err error) {
+						if resp.Config.Route == "/error" {
+							err = customErr
+							return
+						}
+						resp.Data = mockResp.Data
+						return
+					},
 				},
-			})
-			_, err := ins.Get("/")
-			assert.Nil(err)
-			assert.True(done)
-		})
-		t.Run("request fail", func(t *testing.T) {
-			assert := assert.New(t)
-			done := false
-			customErr := errors.New("message")
-			ins := NewInstance(&InstanceConfig{
+			},
+			config: &Config{
+				URL: "/",
+			},
+			resp: mockResp,
+			url:  "https://aslant.site/",
+		},
+		// response interceptors (error)
+		{
+			instanceConfig: &InstanceConfig{
+				BaseURL: "https://aslant.site/",
+				Adapter: func(config *Config) (resp *Response, err error) {
+					resp = &Response{
+						Config: config,
+					}
+					return
+				},
+				ResponseInterceptors: []ResponseInterceptor{
+					func(resp *Response) (err error) {
+						if resp.Config.Route == "/error" {
+							err = customErr
+							return
+						}
+						resp.Data = mockResp.Data
+						return
+					},
+				},
+			},
+			config: &Config{
+				URL: "/error",
+			},
+			err: customErr,
+		},
+		// before new request
+		{
+			instanceConfig: &InstanceConfig{
+				BaseURL: "https://aslant.site/",
+				Adapter: mockAdapter,
+				OnBeforeNewRequest: func(conf *Config) error {
+					conf.BaseURL = "http://www.baidu.com"
+					return nil
+				},
+			},
+			config: &Config{
+				URL: "/",
+			},
+			resp: mockResp,
+			url:  "http://www.baidu.com/",
+		},
+		// on error
+		{
+			instanceConfig: &InstanceConfig{
+				BaseURL: "https://aslant.site/",
+				Adapter: func(config *Config) (resp *Response, err error) {
+					err = customErr
+					return
+				},
+				OnError: func(err error, config *Config) error {
+					if err == customErr {
+						return newCustomErr
+					}
+					return nil
+				},
+			},
+			config: &Config{
+				URL: "/",
+			},
+			err: newCustomErr,
+		},
+		// on done request success
+		{
+			instanceConfig: &InstanceConfig{
+				BaseURL: "https://aslant.site/",
+				Adapter: mockAdapter,
+				OnDone: func(config *Config, resp *Response, err error) {
+					// 设置至request id中
+					if err != nil {
+						config.Request.Header.Set(requestIDKey, "request fail")
+					} else {
+						config.Request.Header.Set(requestIDKey, "request success")
+					}
+				},
+			},
+			config: &Config{
+				URL: "/",
+			},
+			url:       "https://aslant.site/",
+			resp:      mockResp,
+			requestID: "request success",
+		},
+		// on done request fail
+		{
+			instanceConfig: &InstanceConfig{
 				BaseURL: "https://aslant.site/",
 				Adapter: func(config *Config) (resp *Response, err error) {
 					err = customErr
 					return
 				},
 				OnDone: func(config *Config, resp *Response, err error) {
-					assert.Equal(customErr, err)
-					done = true
+					// 设置至request id中
+					if err != nil {
+						config.Request.Header.Set(requestIDKey, "request fail")
+					} else {
+						config.Request.Header.Set(requestIDKey, "request success")
+					}
 				},
-			})
-			_, err := ins.Get("/")
-			assert.NotNil(err)
-			assert.True(done)
-		})
-	})
-
-	t.Run("timeout", func(t *testing.T) {
-		assert := assert.New(t)
-		ins := NewInstance(&InstanceConfig{
-			BaseURL: "https://aslant.site/",
-			Timeout: time.Nanosecond,
-		})
-		_, err := ins.Get("/")
-		e, ok := err.(*url.Error)
-		assert.True(ok)
-		assert.True(e.Timeout())
-	})
-
-	mockIns := NewInstance(&InstanceConfig{
-		Adapter: func(config *Config) (resp *Response, err error) {
-			resp = &Response{
-				Config: config,
-				Data: []byte(`{
-					"message": "hello world"
-				}`),
-			}
-			return
+			},
+			config: &Config{
+				URL: "/",
+			},
+			err:       customErr,
+			requestID: "request fail",
 		},
+		// timeout
+		{
+			instanceConfig: &InstanceConfig{
+				BaseURL: "https://www.baidu.com/",
+				Timeout: time.Nanosecond,
+			},
+			config: &Config{
+				URL: "/",
+			},
+			err: errors.New(`Get "https://www.baidu.com/": context deadline exceeded`),
+		},
+	}
+
+	for _, tt := range tests {
+		ins := NewInstance(tt.instanceConfig)
+		resp, err := ins.Request(tt.config)
+		if tt.err != nil || err != nil {
+			assert.Equal(tt.err.Error(), err.Error())
+		}
+		assert.Equal(tt.requestID, tt.config.Request.Header.Get(requestIDKey))
+		if tt.err == nil {
+			if tt.resp != nil || resp != nil {
+				assert.Equal(tt.resp.Data, resp.Data)
+			}
+			assert.Equal(tt.url, resp.Request.URL.String())
+		}
+	}
+}
+
+func TestRequest(t *testing.T) {
+	assert := assert.New(t)
+	mockResp := &Response{
+		Data: []byte(`{
+			"message": "hello world"
+		}`),
+	}
+	mockPostData := map[string]string{
+		"key": "1",
+	}
+	mockQuery := url.Values{
+		"type": []string{
+			"1",
+		},
+	}
+	mockAdapter := func(config *Config) (resp *Response, err error) {
+		if config.Query.Get("type") != "1" {
+			return nil, errors.New("type is invalid")
+		}
+
+		if config.Method == "POST" ||
+			config.Method == "PUT" ||
+			config.Method == "PATCH" {
+			buf, _ := ioutil.ReadAll(config.Request.Body)
+			if string(buf) != `{"key":"1"}` {
+				return nil, errors.New("request data is invalid")
+			}
+		}
+		return mockResp, nil
+	}
+
+	ins := NewInstance(&InstanceConfig{
+		Adapter: mockAdapter,
 	})
-	mockMessage := "hello world"
+
 	type MockResp struct {
 		Message string
 	}
-	mockQuery := make(url.Values)
-	mockQuery.Add("type", "1")
-	t.Run("GET", func(t *testing.T) {
-		assert := assert.New(t)
-		resp, err := mockIns.Get("/", mockQuery)
-		assert.Nil(err)
-		assert.Equal("GET", resp.Config.Method)
-		assert.Equal("/?type=1", resp.Request.URL.RequestURI())
+	mockRespResult := &MockResp{
+		Message: "hello world",
+	}
 
-		mockResp := MockResp{}
-		err = mockIns.EnhanceGet(&mockResp, "/")
-		assert.Nil(err)
-		assert.Equal(mockMessage, mockResp.Message)
-	})
-	t.Run("DELETE", func(t *testing.T) {
-		assert := assert.New(t)
-		resp, err := mockIns.Delete("/", mockQuery)
-		assert.Nil(err)
-		assert.Equal("DELETE", resp.Config.Method)
-		assert.Equal("/?type=1", resp.Request.URL.RequestURI())
+	tests := []struct {
+		fn     func() (*Response, error)
+		err    error
+		url    string
+		resp   *Response
+		method string
+	}{
+		// GetX
+		{
+			fn: func() (*Response, error) {
+				return ins.GetX(context.Background(), "/", mockQuery)
+			},
+			url:    "/?type=1",
+			resp:   mockResp,
+			method: "GET",
+		},
+		// Get
+		{
+			fn: func() (*Response, error) {
+				return ins.Get("/", mockQuery)
+			},
+			url:    "/?type=1",
+			resp:   mockResp,
+			method: "GET",
+		},
+		// DeleteX
+		{
+			fn: func() (*Response, error) {
+				return ins.DeleteX(context.Background(), "/", mockQuery)
+			},
+			url:    "/?type=1",
+			resp:   mockResp,
+			method: "DELETE",
+		},
+		// Delete
+		{
+			fn: func() (*Response, error) {
+				return ins.Delete("/", mockQuery)
+			},
+			url:    "/?type=1",
+			resp:   mockResp,
+			method: "DELETE",
+		},
+		// HeadX
+		{
+			fn: func() (*Response, error) {
+				return ins.HeadX(context.Background(), "/", mockQuery)
+			},
+			url:    "/?type=1",
+			resp:   mockResp,
+			method: "HEAD",
+		},
+		// Head
+		{
+			fn: func() (*Response, error) {
+				return ins.Head("/", mockQuery)
+			},
+			url:    "/?type=1",
+			resp:   mockResp,
+			method: "HEAD",
+		},
+		// OptionsX
+		{
+			fn: func() (*Response, error) {
+				return ins.OptionsX(context.Background(), "/", mockQuery)
+			},
+			url:    "/?type=1",
+			resp:   mockResp,
+			method: "OPTIONS",
+		},
+		// Options
+		{
+			fn: func() (*Response, error) {
+				return ins.Options("/", mockQuery)
+			},
+			url:    "/?type=1",
+			resp:   mockResp,
+			method: "OPTIONS",
+		},
+		// PostX
+		{
+			fn: func() (*Response, error) {
+				return ins.PostX(context.Background(), "/", mockPostData, mockQuery)
+			},
+			url:    "/?type=1",
+			resp:   mockResp,
+			method: "POST",
+		},
+		// Post
+		{
+			fn: func() (*Response, error) {
+				return ins.Post("/", mockPostData, mockQuery)
+			},
+			url:    "/?type=1",
+			resp:   mockResp,
+			method: "POST",
+		},
+		// PutX
+		{
+			fn: func() (*Response, error) {
+				return ins.PutX(context.Background(), "/", mockPostData, mockQuery)
+			},
+			url:    "/?type=1",
+			resp:   mockResp,
+			method: "PUT",
+		},
+		// Put
+		{
+			fn: func() (*Response, error) {
+				return ins.Put("/", mockPostData, mockQuery)
+			},
+			url:    "/?type=1",
+			resp:   mockResp,
+			method: "PUT",
+		},
+		// PatchX
+		{
+			fn: func() (*Response, error) {
+				return ins.PatchX(context.Background(), "/", mockPostData, mockQuery)
+			},
+			url:    "/?type=1",
+			resp:   mockResp,
+			method: "PATCH",
+		},
+		// Patch
+		{
+			fn: func() (*Response, error) {
+				return ins.Patch("/", mockPostData, mockQuery)
+			},
+			url:    "/?type=1",
+			resp:   mockResp,
+			method: "PATCH",
+		},
+	}
 
-		mockResp := MockResp{}
-		err = mockIns.EnhanceDelete(&mockResp, "/")
-		assert.Nil(err)
-		assert.Equal(mockMessage, mockResp.Message)
-	})
-	t.Run("HEAD", func(t *testing.T) {
-		assert := assert.New(t)
-		resp, err := mockIns.Head("/", mockQuery)
-		assert.Nil(err)
-		assert.Equal("HEAD", resp.Config.Method)
-		assert.Equal("/?type=1", resp.Request.URL.RequestURI())
-	})
-	t.Run("OPTIONS", func(t *testing.T) {
-		assert := assert.New(t)
-		resp, err := mockIns.Options("/", mockQuery)
-		assert.Nil(err)
-		assert.Equal("OPTIONS", resp.Config.Method)
-		assert.Equal("/?type=1", resp.Request.URL.RequestURI())
-	})
-	t.Run("POST", func(t *testing.T) {
-		assert := assert.New(t)
-		resp, err := mockIns.Post("/", map[string]string{
-			"a": "1",
-		}, mockQuery)
-		assert.Nil(err)
-		assert.Equal("POST", resp.Config.Method)
-		assert.Equal("/?type=1", resp.Request.URL.RequestURI())
+	for _, tt := range tests {
+		resp, err := tt.fn()
+		assert.Equal(tt.err, err)
+		assert.Equal(tt.url, resp.Request.URL.RequestURI())
+		assert.Equal(tt.resp, resp)
+		assert.Equal(tt.method, resp.Request.Method)
+	}
 
-		mockResp := MockResp{}
-		err = mockIns.EnhancePost(&mockResp, "/", map[string]string{
-			"a": "1",
-		})
-		assert.Nil(err)
-		assert.Equal(mockMessage, mockResp.Message)
-	})
-	t.Run("PUT", func(t *testing.T) {
-		assert := assert.New(t)
-		resp, err := mockIns.Put("/", map[string]string{
-			"a": "1",
-		}, mockQuery)
-		assert.Nil(err)
-		assert.Equal("PUT", resp.Config.Method)
-		assert.Equal("/?type=1", resp.Request.URL.RequestURI())
-
-		mockResp := MockResp{}
-		err = mockIns.EnhancePut(&mockResp, "/", map[string]string{
-			"a": "1",
-		})
-		assert.Nil(err)
-		assert.Equal(mockMessage, mockResp.Message)
-	})
-	t.Run("PATCH", func(t *testing.T) {
-		assert := assert.New(t)
-		resp, err := mockIns.Patch("/", map[string]string{
-			"a": "1",
-		}, mockQuery)
-		assert.Nil(err)
-		assert.Equal("PATCH", resp.Config.Method)
-		assert.Equal("/?type=1", resp.Request.URL.RequestURI())
-
-		mockResp := MockResp{}
-		err = mockIns.EnhancePatch(&mockResp, "/", map[string]string{
-			"a": "1",
-		})
-		assert.Nil(err)
-		assert.Equal(mockMessage, mockResp.Message)
-	})
+	enhanceTests := []struct {
+		fn   func() (*MockResp, error)
+		err  error
+		resp *MockResp
+	}{
+		// EnhanceGetX
+		{
+			fn: func() (*MockResp, error) {
+				resp := &MockResp{}
+				err := ins.EnhanceGetX(context.Background(), resp, "/", mockQuery)
+				return resp, err
+			},
+			resp: mockRespResult,
+		},
+		// EnhanceGet
+		{
+			fn: func() (*MockResp, error) {
+				resp := &MockResp{}
+				err := ins.EnhanceGet(resp, "/", mockQuery)
+				return resp, err
+			},
+			resp: mockRespResult,
+		},
+		// EnhanceDeleteX
+		{
+			fn: func() (*MockResp, error) {
+				resp := &MockResp{}
+				err := ins.EnhanceDeleteX(context.Background(), resp, "/", mockQuery)
+				return resp, err
+			},
+			resp: mockRespResult,
+		},
+		// EnhanceDelete
+		{
+			fn: func() (*MockResp, error) {
+				resp := &MockResp{}
+				err := ins.EnhanceDelete(resp, "/", mockQuery)
+				return resp, err
+			},
+			resp: mockRespResult,
+		},
+		// EnhancePostX
+		{
+			fn: func() (*MockResp, error) {
+				resp := &MockResp{}
+				err := ins.EnhancePostX(context.Background(), resp, "/", mockPostData, mockQuery)
+				return resp, err
+			},
+			resp: mockRespResult,
+		},
+		// EnhancePost
+		{
+			fn: func() (*MockResp, error) {
+				resp := &MockResp{}
+				err := ins.EnhancePost(resp, "/", mockPostData, mockQuery)
+				return resp, err
+			},
+			resp: mockRespResult,
+		},
+		// EnhancePutX
+		{
+			fn: func() (*MockResp, error) {
+				resp := &MockResp{}
+				err := ins.EnhancePutX(context.Background(), resp, "/", mockPostData, mockQuery)
+				return resp, err
+			},
+			resp: mockRespResult,
+		},
+		// EnhancePut
+		{
+			fn: func() (*MockResp, error) {
+				resp := &MockResp{}
+				err := ins.EnhancePut(resp, "/", mockPostData, mockQuery)
+				return resp, err
+			},
+			resp: mockRespResult,
+		},
+		// EnhancePatchX
+		{
+			fn: func() (*MockResp, error) {
+				resp := &MockResp{}
+				err := ins.EnhancePatchX(context.Background(), resp, "/", mockPostData, mockQuery)
+				return resp, err
+			},
+			resp: mockRespResult,
+		},
+		// EnhancePatch
+		{
+			fn: func() (*MockResp, error) {
+				resp := &MockResp{}
+				err := ins.EnhancePatch(resp, "/", mockPostData, mockQuery)
+				return resp, err
+			},
+			resp: mockRespResult,
+		},
+	}
+	for _, tt := range enhanceTests {
+		resp, err := tt.fn()
+		assert.Equal(tt.err, err)
+		assert.Equal(tt.resp, resp)
+	}
 }
 
 func TestMock(t *testing.T) {

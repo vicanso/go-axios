@@ -30,6 +30,7 @@ func TestResponse(t *testing.T) {
 		err := resp.JSON(&m)
 		assert.Nil(err)
 		assert.Equal("b", m["a"])
+		assert.Equal(&m, resp.UnmarshalData)
 
 		result := make(map[string]int)
 		err = resp.JSON(&result)
