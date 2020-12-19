@@ -1,6 +1,6 @@
 # go-axios
 
-[![Build Status](https://img.shields.io/travis/vicanso/go-axios.svg?label=linux+build)](https://travis-ci.org/vicanso/go-axios)
+[![Build Status](https://github.com/vicanso/go-axios/workflows/Test/badge.svg)](https://github.com/vicanso/go-axios/actions)
 
 简单易用的HTTP客户端，参考[axios](https://github.com/axios/axios)的相关实现，支持各类不同的`interceptor`与`transform`，特性如下：
 
