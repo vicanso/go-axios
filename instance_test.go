@@ -183,7 +183,7 @@ func TestRequestInterceptor(t *testing.T) {
 	newCustomErr := errors.New("new custom error")
 	deadlineExceededErr := errors.New(`Get "https://www.baidu.com/": context deadline exceeded`)
 	// 1.13的出错没有双引号
-	if runtime.Version() == "1.13" {
+	if runtime.Version() == "go1.13" {
 		deadlineExceededErr = errors.New(`Get https://www.baidu.com/: context deadline exceeded`)
 	}
 
