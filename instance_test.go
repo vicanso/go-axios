@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"runtime"
 	"testing"
 	"time"
 
@@ -180,6 +181,11 @@ func TestRequestInterceptor(t *testing.T) {
 	assert := assert.New(t)
 	customErr := errors.New("custom error")
 	newCustomErr := errors.New("new custom error")
+	deadlineExceededErr := errors.New(`Get "https://www.baidu.com/": context deadline exceeded`)
+	// 1.13的出错没有双引号
+	if runtime.Version() == "1.13" {
+		deadlineExceededErr = errors.New(`Get https://www.baidu.com/: context deadline exceeded`)
+	}
 
 	requestIDKey := "X-Request-ID"
 	mockResp := &Response{
@@ -469,7 +475,7 @@ func TestRequestInterceptor(t *testing.T) {
 			config: &Config{
 				URL: "/",
 			},
-			err: errors.New(`Get "https://www.baidu.com/": context deadline exceeded`),
+			err: deadlineExceededErr,
 		},
 	}
 
