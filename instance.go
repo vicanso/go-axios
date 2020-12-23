@@ -271,6 +271,11 @@ func (ins *Instance) doRequest(config *Config, result interface{}) (resp *Respon
 	return
 }
 
+// GetConcurrency get concurrency of instance
+func (ins *Instance) GetConcurrency() uint32 {
+	return atomic.LoadUint32(&ins.concurrency)
+}
+
 // Request http request
 func (ins *Instance) Request(config *Config) (resp *Response, err error) {
 	resp, err = ins.doRequest(config, nil)
@@ -278,7 +283,7 @@ func (ins *Instance) Request(config *Config) (resp *Response, err error) {
 }
 
 // EnhanceRequest http request and unmarshal response to struct
-func (ins *Instance) EnhanceRequest(config *Config, result interface{}) (err error) {
+func (ins *Instance) EnhanceRequest(result interface{}, config *Config) (err error) {
 	_, err = ins.doRequest(config, result)
 	if err != nil {
 		return

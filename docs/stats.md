@@ -49,5 +49,4 @@ func main() {
 	fmt.Println(err)
 	fmt.Println(resp.Status)
 }
-
 ```

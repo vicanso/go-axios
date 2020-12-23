@@ -24,6 +24,32 @@ func main() {
 }
 ```
 
+## EnhanceRequest(config *Config, result interface{}) (err error)
+通过Config的各参数配置(具体各属性参考Config的说明)，指定HTTP请求，并指定result用于json unmarshal，便于json形式的响应处理。
+
+```go
+import (
+	"crypto/tls"
+	"fmt"
+	"net/http"
+
+	"github.com/vicanso/go-axios"
+)
+
+type LoginResp struct {
+	Account string `json:"account"`
+}
+
+func main() {
+	resp := LoginResp{}
+	err := axios.EnhanceRequest(resp, &axios.Config{
+		URL: "https://tiny.npmtrend.com/users/v1/me/login",
+	})
+	fmt.Println(err)
+	fmt.Println(resp)
+}
+```
+
 ## Get(url string, query ...url.Values) (resp *Response, err error)
 
 HTTP GET请求，query部分为可选参数，需要注意需要query为不定长但只支持不传或者只传一个参数。
@@ -51,3 +77,13 @@ HTTP PATCH请求，处理方式与`POST`一致。
 ## Put(url string, data interface{}, query ...url.Values) (resp *Response, err error)
 
 HTTP PUT请求，处理方式与`POST`一致。
+
+
+## Enhance与X方法
+
+上述的所有方法均支持直接json unmarshal与添加context的处理，例如对于GET的方法有如下的方法：
+
+- `Get(url string, query ...url.Values) (resp *Response, err error)`
+- `GetX(context context.Context, url string, query ...url.Values) (resp *Response, err error)`
+- `EnhanceGet(result interface{}, url string, query ...url.Values) (err error) `
+- `EnhanceGetX(context context.Context, result interface{}, url string, query ...url.Values) (err error)`
