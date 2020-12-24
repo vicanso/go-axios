@@ -211,6 +211,10 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 	if req.Header.Get(headerAcceptEncoding) == "" {
 		req.Header.Set(headerAcceptEncoding, defaultAcceptEncoding)
 	}
+	// 如果未设置Accept，则设置默认值 application/json, text/plain, */*
+	if req.Header.Get("Accept") == "" {
+		req.Header.Set("Accpet", "application/json, text/plain, */*")
+	}
 
 	config.Request = req
 
