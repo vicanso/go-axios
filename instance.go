@@ -63,7 +63,7 @@ func newRequest(config *Config) (req *http.Request, err error) {
 		}
 	}
 
-	url := config.getURL()
+	url := config.GetURL()
 
 	r, err := config.getRequestBody()
 	if err != nil {

@@ -202,8 +202,8 @@ func urlJoin(basicURL, url string) string {
 	return basicURL + url
 }
 
-// getURL generate the url of request config
-func (conf *Config) getURL() string {
+// GetURL generate the url of request config
+func (conf *Config) GetURL() string {
 	url := urlJoin(conf.BaseURL, conf.URL)
 	if conf.Params != nil {
 		for key, value := range conf.Params {
@@ -269,7 +269,7 @@ func (conf *Config) CURL() string {
 		}
 	}
 
-	builder.WriteString(fmt.Sprintf(`'%s'`, conf.getURL()))
+	builder.WriteString(fmt.Sprintf(`'%s'`, conf.GetURL()))
 
 	return builder.String()
 }
