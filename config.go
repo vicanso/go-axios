@@ -23,6 +23,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -171,6 +173,74 @@ func (conf *Config) GetInt(key string) int {
 	}
 	i, _ := v.(int)
 	return i
+}
+func getTag(sf reflect.StructField) string {
+	tag := sf.Tag.Get("json")
+	if tag != "" {
+		arr := strings.Split(tag, ",")
+		tag = arr[0]
+	}
+	if tag != "" {
+		return tag
+	}
+	return sf.Name
+}
+
+func structToMapString(value interface{}) (map[string]string, error) {
+	v := reflect.ValueOf(value)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	t := v.Type()
+
+	m := make(map[string]string)
+	for i := 0; i < t.NumField(); i++ {
+		sf := t.Field(i)
+		tag := getTag(sf)
+		// 对于 - 忽略
+		if tag == "-" {
+			continue
+		}
+		value := ""
+		switch sf.Type.Kind() {
+		case reflect.Bool:
+			if v.Field(i).Bool() {
+				value = "true"
+			} else {
+				value = "false"
+			}
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			value = strconv.Itoa(int(v.Field(i).Int()))
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+			value = strconv.Itoa(int(v.Field(i).Uint()))
+		case reflect.Float32, reflect.Float64:
+			value = fmt.Sprintf("%.3f", v.Field(i).Float())
+		case reflect.String:
+			value = v.Field(i).String()
+		default:
+			return nil, errors.New("unsupported type")
+		}
+		m[tag] = value
+	}
+	return m, nil
+}
+
+// AddQueryMap convert map and add to query
+func (conf *Config) AddQueryMap(query map[string]string) *Config {
+	for key, value := range query {
+		conf.AddQuery(key, value)
+	}
+	return conf
+}
+
+// AddQueryStruct convert struct and add to query
+func (conf *Config) AddQueryStruct(value interface{}) (*Config, error) {
+	m, err := structToMapString(value)
+	if err != nil {
+		return conf, err
+	}
+	conf.AddQueryMap(m)
+	return conf, nil
 }
 
 // AddQuery add query

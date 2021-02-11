@@ -63,6 +63,43 @@ func TestAddQuery(t *testing.T) {
 	assert.Equal("1", config.Query.Get("a"))
 }
 
+func TestAddQueryMap(t *testing.T) {
+	assert := assert.New(t)
+	config := &Config{
+		URL: "/",
+	}
+	config.AddQueryMap(map[string]string{
+		"a": "1",
+		"b": "2",
+	})
+	assert.Equal("/?a=1&b=2", config.GetURL())
+}
+
+func TestAddQueryStruct(t *testing.T) {
+	assert := assert.New(t)
+	config := &Config{
+		URL: "/",
+	}
+	type Data struct {
+		Count       int     `json:"count,omitempty"`
+		Number      uint    `json:"number,omitempty"`
+		IsVIP       bool    `json:"isVIP,omitempty"`
+		Name        string  `json:"name,omitempty"`
+		Amount      float64 `json:"amount,omitempty"`
+		IgnoreField string  `json:"-"`
+	}
+	_, err := config.AddQueryStruct(&Data{
+		Count:       1,
+		Number:      2,
+		IsVIP:       true,
+		Name:        "test",
+		Amount:      10.2,
+		IgnoreField: "aaaaaaaa",
+	})
+	assert.Nil(err)
+	assert.Equal("/?amount=10.200&count=1&isVIP=true&name=test&number=2", config.GetURL())
+}
+
 func TestAddParam(t *testing.T) {
 	assert := assert.New(t)
 	config := &Config{}
