@@ -220,7 +220,9 @@ func structToMapString(value interface{}) (map[string]string, error) {
 		default:
 			return nil, errors.New("unsupported type")
 		}
-		m[tag] = value
+		if value != "" {
+			m[tag] = value
+		}
 	}
 	return m, nil
 }

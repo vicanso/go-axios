@@ -86,6 +86,7 @@ func TestAddQueryStruct(t *testing.T) {
 		IsVIP       bool    `json:"isVIP,omitempty"`
 		Name        string  `json:"name,omitempty"`
 		Amount      float64 `json:"amount,omitempty"`
+		Category    string  `json:"category,omitempty"`
 		IgnoreField string  `json:"-"`
 	}
 	_, err := config.AddQueryStruct(&Data{
