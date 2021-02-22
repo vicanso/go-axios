@@ -29,14 +29,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestURLJoin(t *testing.T) {
-	assert := assert.New(t)
-	assert.Equal("https://aslant.site/users/me", urlJoin("https://aslant.site", "/users/me"))
-	assert.Equal("https://aslant.site/users/me", urlJoin("https://aslant.site/", "/users/me"))
-	assert.Equal("https://aslant.site/users/me", urlJoin("https://aslant.site/", "https://aslant.site/users/me"))
-	assert.Equal("http://aslant.site/users/me", urlJoin("https://aslant.site/", "http://aslant.site/users/me"))
-}
-
 func TestMergeConfig(t *testing.T) {
 	assert := assert.New(t)
 	headers := make(http.Header)
@@ -77,15 +69,6 @@ func TestMergeConfig(t *testing.T) {
 	assert.Equal(insConfig.Client, config.Client)
 	assert.Equal(insConfig.RequestInterceptors, config.RequestInterceptors)
 	assert.Equal(insConfig.ResponseInterceptors, config.ResponseInterceptors)
-}
-
-func TestIsNeedToTransformRequestBody(t *testing.T) {
-	assert := assert.New(t)
-
-	assert.True(isNeedToTransformRequestBody("POST"))
-	assert.True(isNeedToTransformRequestBody("PATCH"))
-	assert.True(isNeedToTransformRequestBody("PUT"))
-	assert.False(isNeedToTransformRequestBody("GET"))
 }
 
 func TestNewRequest(t *testing.T) {

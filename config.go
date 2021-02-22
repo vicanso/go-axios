@@ -271,6 +271,9 @@ func urlJoin(basicURL, url string) string {
 	if strings.HasSuffix(basicURL, "/") && strings.HasPrefix(url, "/") {
 		return basicURL + url[1:]
 	}
+	if !strings.HasSuffix(basicURL, "/") && !strings.HasPrefix(url, "/") {
+		return basicURL + "/" + url
+	}
 	return basicURL + url
 }
 
@@ -291,6 +294,21 @@ func (conf *Config) GetURL() string {
 		}
 	}
 	return url
+}
+
+var needToTransformMethods = []string{
+	http.MethodPost,
+	http.MethodPatch,
+	http.MethodPut,
+}
+
+func isNeedToTransformRequestBody(method string) bool {
+	for _, value := range needToTransformMethods {
+		if value == method {
+			return true
+		}
+	}
+	return false
 }
 
 // getRequestBody get request body

@@ -37,21 +37,6 @@ type (
 	}
 )
 
-var needToTransformMethods = []string{
-	http.MethodPost,
-	http.MethodPatch,
-	http.MethodPut,
-}
-
-func isNeedToTransformRequestBody(method string) bool {
-	for _, value := range needToTransformMethods {
-		if value == method {
-			return true
-		}
-	}
-	return false
-}
-
 func newRequest(config *Config) (req *http.Request, err error) {
 	if config.Method == "" {
 		config.Method = http.MethodGet
@@ -143,9 +128,6 @@ func NewInstance(config *InstanceConfig) *Instance {
 func (ins *Instance) request(config *Config) (resp *Response, err error) {
 	config.Concurrency = atomic.AddUint32(&ins.concurrency, 1)
 	defer atomic.AddUint32(&ins.concurrency, ^uint32(0))
-	if config.Headers == nil {
-		config.Headers = make(http.Header)
-	}
 	mergeConfig(config, ins.Config)
 
 	adapter := config.Adapter
