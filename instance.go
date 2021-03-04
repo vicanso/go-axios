@@ -209,12 +209,12 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 	}
 
 	resp, err = adapter(config)
+	config.Response = resp
 	if err != nil {
 		return
 	}
 	resp.Config = config
 	resp.Request = config.Request
-	config.Response = resp
 	data := resp.Data
 	// 响应数据的相关转换
 	for _, fn := range config.TransformResponse {
