@@ -110,6 +110,8 @@ type (
 		Client *http.Client
 		// Adapter custom adapter
 		Adapter Adapter
+		// MaxConcurrency max concurrency for instance
+		MaxConcurrency uint32
 
 		// RequestInterceptors request interceptor list
 		RequestInterceptors []RequestInterceptor

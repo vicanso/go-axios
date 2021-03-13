@@ -16,6 +16,7 @@ package axios
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
@@ -36,6 +37,8 @@ type (
 		concurrency uint32
 	}
 )
+
+var ErrTooManyRequests = errors.New("too many request of the instance")
 
 func newRequest(config *Config) (req *http.Request, err error) {
 	if config.Method == "" {
@@ -128,6 +131,11 @@ func NewInstance(config *InstanceConfig) *Instance {
 func (ins *Instance) request(config *Config) (resp *Response, err error) {
 	config.Concurrency = atomic.AddUint32(&ins.concurrency, 1)
 	defer atomic.AddUint32(&ins.concurrency, ^uint32(0))
+	// 如果配置了最大请求数，而且当前请求大于最大请求数
+	if ins.Config.MaxConcurrency != 0 && config.Concurrency > ins.Config.MaxConcurrency {
+		err = ErrTooManyRequests
+		return
+	}
 	mergeConfig(config, ins.Config)
 
 	adapter := config.Adapter

@@ -479,6 +479,30 @@ func TestRequestInterceptor(t *testing.T) {
 	}
 }
 
+func TestTooManyRequests(t *testing.T) {
+	assert := assert.New(t)
+
+	ins := NewInstance(&InstanceConfig{
+		MaxConcurrency: 1,
+	})
+	ins.Config.Adapter = func(config *Config) (resp *Response, err error) {
+		time.Sleep(10 * time.Millisecond)
+		return &Response{}, nil
+	}
+
+	go func() {
+		time.Sleep(5 * time.Millisecond)
+		_, err := ins.request(&Config{})
+		assert.Equal(ErrTooManyRequests, err)
+		_, err = ins.request(&Config{})
+		assert.Equal(ErrTooManyRequests, err)
+	}()
+	_, err := ins.request(&Config{})
+	assert.Nil(err)
+	_, err = ins.request(&Config{})
+	assert.Nil(err)
+}
+
 func TestRequest(t *testing.T) {
 	assert := assert.New(t)
 	mockResp := &Response{
