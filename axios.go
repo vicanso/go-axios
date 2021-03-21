@@ -17,6 +17,7 @@ package axios
 import (
 	"encoding/json"
 	"net/url"
+	"time"
 )
 
 type (
@@ -26,8 +27,11 @@ type (
 	JSONUnmarshal func([]byte, interface{}) error
 )
 
+// defaultTimeout is for all request which not set timeout
 var (
-	defaultIns = NewInstance(nil)
+	defaultIns = NewInstance(&InstanceConfig{
+		Timeout: time.Minute,
+	})
 	// default json marshal
 	jsonMarshal = json.Marshal
 	// default json unmarshal

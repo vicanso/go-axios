@@ -42,6 +42,7 @@ func main() {
 				Proxy: http.ProxyFromEnvironment,
 			},
 		},
+		// 超时设置，建议设置此字段避免无接口无超时处理
 		Timeout: 10 * time.Second,
 		// OnDone 无论成功或失败均会调用，可在此处添加统计
 		OnDone: func(config *axios.Config, resp *axios.Response, err error) {
