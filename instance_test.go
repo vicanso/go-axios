@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -808,4 +809,45 @@ func TestMock(t *testing.T) {
 	resp, err = ins.Get("/")
 	assert.Nil(err)
 	assert.Equal(mockResp, resp)
+}
+
+func TestAddRequestInterceptor(t *testing.T) {
+	assert := assert.New(t)
+
+	ins := NewInstance(&InstanceConfig{})
+
+	assert.Empty(ins.Config.RequestInterceptors)
+
+	fn := func(config *Config) error {
+		return nil
+	}
+	ins.AppendRequestInterceptor(fn)
+	assert.Equal(1, len(ins.Config.RequestInterceptors))
+	assert.Equal(reflect.ValueOf(fn).Pointer(), reflect.ValueOf(ins.Config.RequestInterceptors[0]).Pointer())
+
+	ins.PrependRequestInterceptor(func(config *Config) error {
+		return nil
+	})
+	assert.Equal(2, len(ins.Config.RequestInterceptors))
+	assert.NotEqual(reflect.ValueOf(fn).Pointer(), reflect.ValueOf(ins.Config.RequestInterceptors[0]).Pointer())
+}
+
+func TestAddResponseInterceptor(t *testing.T) {
+	assert := assert.New(t)
+
+	ins := NewInstance(&InstanceConfig{})
+
+	assert.Empty(ins.Config.ResponseInterceptors)
+	fn := func(resp *Response) error {
+		return nil
+	}
+	ins.AppendResponseInterceptor(fn)
+	assert.Equal(1, len(ins.Config.ResponseInterceptors))
+	assert.Equal(reflect.ValueOf(fn).Pointer(), reflect.ValueOf(ins.Config.ResponseInterceptors[0]).Pointer())
+
+	ins.PrependResponseInterceptor(func(resp *Response) error {
+		return nil
+	})
+	assert.Equal(2, len(ins.Config.ResponseInterceptors))
+	assert.NotEqual(reflect.ValueOf(fn).Pointer(), reflect.ValueOf(ins.Config.ResponseInterceptors[0]).Pointer())
 }

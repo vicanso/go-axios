@@ -561,3 +561,27 @@ func (ins *Instance) MultiMock(multi map[string]*Response) (done func()) {
 		ins.Config.Adapter = originalAdapter
 	}
 }
+
+// AppendRequestInterceptor appends request interceptor to instance
+func (ins *Instance) AppendRequestInterceptor(fn RequestInterceptor) {
+	ins.Config.RequestInterceptors = append(ins.Config.RequestInterceptors, fn)
+}
+
+// PrependRequestInterceptor prepends request interceptor to instance
+func (ins *Instance) PrependRequestInterceptor(fn RequestInterceptor) {
+	ins.Config.RequestInterceptors = append([]RequestInterceptor{
+		fn,
+	}, ins.Config.RequestInterceptors...)
+}
+
+// AppendResponseInterceptor appends response interceptor to instance
+func (ins *Instance) AppendResponseInterceptor(fn ResponseInterceptor) {
+	ins.Config.ResponseInterceptors = append(ins.Config.ResponseInterceptors, fn)
+}
+
+// PrependResponseInterceptor prepends response interceptor to instance
+func (ins *Instance) PrependResponseInterceptor(fn ResponseInterceptor) {
+	ins.Config.ResponseInterceptors = append([]ResponseInterceptor{
+		fn,
+	}, ins.Config.ResponseInterceptors...)
+}
