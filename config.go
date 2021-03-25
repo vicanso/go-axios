@@ -111,7 +111,8 @@ type (
 		// Adapter custom adapter
 		Adapter Adapter
 		// MaxConcurrency max concurrency for instance
-		MaxConcurrency uint32
+		// If lt 0, all request will be fail
+		MaxConcurrency int32
 
 		// RequestInterceptors request interceptor list
 		RequestInterceptors []RequestInterceptor
@@ -130,6 +131,7 @@ type (
 )
 
 var ErrRequestDataTypeInvalid = errors.New("request data type is not supported")
+var ErrRequestIsForbidden = errors.New("request is forbidden")
 
 // Get get value from config
 func (conf *Config) Get(key string) interface{} {

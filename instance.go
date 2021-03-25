@@ -129,10 +129,13 @@ func NewInstance(config *InstanceConfig) *Instance {
 }
 
 func (ins *Instance) request(config *Config) (resp *Response, err error) {
+	if ins.Config.MaxConcurrency < 0 {
+		return nil, ErrRequestIsForbidden
+	}
 	config.Concurrency = atomic.AddUint32(&ins.concurrency, 1)
 	defer atomic.AddUint32(&ins.concurrency, ^uint32(0))
 	// 如果配置了最大请求数，而且当前请求大于最大请求数
-	if ins.Config.MaxConcurrency != 0 && config.Concurrency > ins.Config.MaxConcurrency {
+	if ins.Config.MaxConcurrency != 0 && int32(config.Concurrency) > ins.Config.MaxConcurrency {
 		err = ErrTooManyRequests
 		return
 	}

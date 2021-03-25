@@ -792,6 +792,15 @@ func TestRequest(t *testing.T) {
 	}
 }
 
+func TestRequestForbidden(t *testing.T) {
+	assert := assert.New(t)
+	ins := NewInstance(&InstanceConfig{
+		MaxConcurrency: -1,
+	})
+	_, err := ins.request(nil)
+	assert.Equal(ErrRequestIsForbidden, err)
+}
+
 func TestMock(t *testing.T) {
 	assert := assert.New(t)
 	ins := NewInstance(nil)
