@@ -694,6 +694,18 @@ func TestRequest(t *testing.T) {
 		err  error
 		resp *MockResp
 	}{
+		// EnhanceRequest
+		{
+			fn: func() (*MockResp, error) {
+				resp := &MockResp{}
+				err := ins.EnhanceRequest(resp, &Config{
+					URL:   "/",
+					Query: mockQuery,
+				})
+				return resp, err
+			},
+			resp: mockRespResult,
+		},
 		// EnhanceGetX
 		{
 			fn: func() (*MockResp, error) {
@@ -799,6 +811,12 @@ func TestRequestForbidden(t *testing.T) {
 	})
 	_, err := ins.request(nil)
 	assert.Equal(ErrRequestIsForbidden, err)
+
+	ins.SetMaxConcurrency(0)
+	done := ins.Mock(&Response{})
+	defer done()
+	_, err = ins.request(&Config{})
+	assert.Nil(err)
 }
 
 func TestMock(t *testing.T) {
@@ -859,4 +877,13 @@ func TestAddResponseInterceptor(t *testing.T) {
 	})
 	assert.Equal(2, len(ins.Config.ResponseInterceptors))
 	assert.NotEqual(reflect.ValueOf(fn).Pointer(), reflect.ValueOf(ins.Config.ResponseInterceptors[0]).Pointer())
+}
+
+func TestGetConcurrency(t *testing.T) {
+	assert := assert.New(t)
+
+	ins := NewInstance(&InstanceConfig{})
+	assert.Equal(uint32(0), ins.GetConcurrency())
+	ins.concurrency = 1
+	assert.Equal(uint32(1), ins.GetConcurrency())
 }

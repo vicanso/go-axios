@@ -273,6 +273,11 @@ func (ins *Instance) GetConcurrency() uint32 {
 	return atomic.LoadUint32(&ins.concurrency)
 }
 
+// SetMaxConcurrency sets max concurrency for instance
+func (ins *Instance) SetMaxConcurrency(value int32) {
+	atomic.StoreInt32(&ins.Config.MaxConcurrency, value)
+}
+
 // Request http request
 func (ins *Instance) Request(config *Config) (resp *Response, err error) {
 	resp, err = ins.doRequest(config, nil)
