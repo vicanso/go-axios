@@ -809,7 +809,7 @@ func TestRequestForbidden(t *testing.T) {
 	ins := NewInstance(&InstanceConfig{
 		MaxConcurrency: -1,
 	})
-	_, err := ins.request(nil)
+	_, err := ins.request(&Config{})
 	assert.Equal(ErrRequestIsForbidden, err)
 
 	ins.SetMaxConcurrency(0)

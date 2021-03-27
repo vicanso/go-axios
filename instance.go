@@ -129,6 +129,9 @@ func NewInstance(config *InstanceConfig) *Instance {
 }
 
 func (ins *Instance) request(config *Config) (resp *Response, err error) {
+	// 合并config必须放在第一步，因为有些事件是在instance中生成
+	mergeConfig(config, ins.Config)
+
 	if ins.Config.MaxConcurrency < 0 {
 		return nil, ErrRequestIsForbidden
 	}
@@ -139,7 +142,6 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 		err = ErrTooManyRequests
 		return
 	}
-	mergeConfig(config, ins.Config)
 
 	adapter := config.Adapter
 	if adapter == nil {

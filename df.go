@@ -16,7 +16,7 @@ package axios
 
 const (
 	// UserAgent client user agent
-	UserAgent = "go-axios/1.2.0"
+	UserAgent = "go-axios/1.2.1"
 
 	headerUserAgent       = "User-Agent"
 	headerAcceptEncoding  = "Accept-Encoding"
