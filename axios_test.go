@@ -16,7 +16,14 @@ package axios
 
 import (
 	"encoding/json"
+	"errors"
+	"net"
+	"os"
+	"syscall"
 	"testing"
+	"time"
+
+	HT "github.com/vicanso/http-trace"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -75,4 +82,102 @@ func TestDefaultInstance(t *testing.T) {
 	resp, err = Patch("/", nil)
 	assert.Nil(err)
 	assert.Equal("PATCH", resp.Config.Method)
+}
+
+type timeoutErr struct {
+	error
+}
+
+func (te *timeoutErr) Timeout() bool {
+	return true
+}
+
+func (te *timeoutErr) Temporary() bool {
+	return false
+}
+
+func TestGetErrorCategory(t *testing.T) {
+	assert := assert.New(t)
+
+	assert.Equal(ErrCategoryTimeout, GetInternalErrorCategory(&timeoutErr{}))
+
+	assert.Equal(ErrCategoryDNS, GetInternalErrorCategory(&net.DNSError{}))
+
+	assert.Equal(ErrCategoryAddr, GetInternalErrorCategory(&net.AddrError{}))
+
+	assert.Equal(ErrCategoryRefused, GetInternalErrorCategory(&net.OpError{
+		Err: &os.SyscallError{
+			Err: syscall.ECONNREFUSED,
+		},
+	}))
+	assert.Equal(ErrCategoryAborted, GetInternalErrorCategory(&net.OpError{
+		Err: &os.SyscallError{
+			Err: syscall.ECONNABORTED,
+		},
+	}))
+	assert.Equal(ErrCategoryReset, GetInternalErrorCategory(&net.OpError{
+		Err: &os.SyscallError{
+			Err: syscall.ECONNRESET,
+		},
+	}))
+	assert.Equal(ErrCategoryTimeout, GetInternalErrorCategory(&net.OpError{
+		Err: &os.SyscallError{
+			Err: syscall.ETIMEDOUT,
+		},
+	}))
+
+	assert.Empty(GetInternalErrorCategory(errors.New("a")))
+}
+
+func TestGetStats(t *testing.T) {
+	ht := &HT.HTTPTrace{
+		Addr:    "1.1.1.1:80",
+		Reused:  true,
+		Start:   time.Unix(1, 0),
+		GetConn: time.Unix(2, 0),
+
+		DNSStart: time.Unix(1, 0),
+		DNSDone:  time.Unix(3, 0),
+
+		ConnectStart: time.Unix(1, 0),
+		ConnectDone:  time.Unix(4, 0),
+
+		TLSHandshakeStart: time.Unix(1, 0),
+		TLSHandshakeDone:  time.Unix(5, 0),
+
+		GotConnect:           time.Unix(1, 0),
+		GotFirstResponseByte: time.Unix(6, 0),
+
+		Done: time.Unix(12, 0),
+	}
+	assert := assert.New(t)
+	conf := &Config{
+		Method:  "GET",
+		BaseURL: "http://127.0.0.1",
+		Route:   "/users/v1/:type",
+		URL:     "/users/v1/me",
+		Response: &Response{
+			Status: 400,
+			Data:   []byte("test"),
+		},
+		HTTPTrace: ht,
+	}
+
+	stats := GetStats(conf, errors.New("fail"))
+
+	assert.Equal("/users/v1/:type", stats.Route)
+	assert.Equal("GET", stats.Method)
+	assert.Equal(ResultFail, stats.Result)
+	assert.Equal("http://127.0.0.1/users/v1/me", stats.URI)
+	assert.Equal(400, stats.Status)
+	assert.True(stats.Reused)
+	assert.Equal("1.1.1.1:80", stats.Addr)
+	assert.Equal(2000, stats.DNSUse)
+	assert.Equal(3000, stats.TCPUse)
+	assert.Equal(4000, stats.TLSUse)
+	assert.Equal(5000, stats.ServerProcessingUse)
+	assert.Equal(6000, stats.ContentTransferUse)
+	assert.Equal(11000, stats.Use)
+
+	assert.Equal(4, stats.Size)
 }
