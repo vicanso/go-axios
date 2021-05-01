@@ -15,6 +15,7 @@
 package axios
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net"
@@ -25,12 +26,13 @@ import (
 )
 
 const (
-	ErrCategoryDNS     = "dns"
-	ErrCategoryTimeout = "timeout"
-	ErrCategoryAddr    = "addr"
-	ErrCategoryAborted = "aborted"
-	ErrCategoryRefused = "refused"
-	ErrCategoryReset   = "reset"
+	ErrCategoryDNS      = "dns"
+	ErrCategoryTimeout  = "timeout"
+	ErrCategoryCanceled = "canceled"
+	ErrCategoryAddr     = "addr"
+	ErrCategoryAborted  = "aborted"
+	ErrCategoryRefused  = "refused"
+	ErrCategoryReset    = "reset"
 )
 
 const (
@@ -113,6 +115,9 @@ func GetDefaultInstance() *Instance {
 
 // GetInternalErrorCategory get the category of net op error
 func GetInternalErrorCategory(err error) string {
+	if errors.Is(err, context.Canceled) {
+		return ErrCategoryCanceled
+	}
 	netErr, ok := err.(net.Error)
 	if ok && netErr.Timeout() {
 		return ErrCategoryTimeout

@@ -15,6 +15,7 @@
 package axios
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net"
@@ -98,6 +99,7 @@ func (te *timeoutErr) Temporary() bool {
 
 func TestGetErrorCategory(t *testing.T) {
 	assert := assert.New(t)
+	assert.Equal(ErrCategoryCanceled, GetInternalErrorCategory(context.Canceled))
 
 	assert.Equal(ErrCategoryTimeout, GetInternalErrorCategory(&timeoutErr{}))
 
