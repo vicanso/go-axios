@@ -813,9 +813,13 @@ func TestRequestForbidden(t *testing.T) {
 	assert.Equal(ErrRequestIsForbidden, err)
 
 	ins.SetMaxConcurrency(0)
-	done := ins.Mock(&Response{})
+	conf := &Config{}
+	done := ins.Mock(&Response{}, func(config *Config) (err error) {
+		assert.Equal(conf, config)
+		return nil
+	})
 	defer done()
-	_, err = ins.request(&Config{})
+	_, err = ins.request(conf)
 	assert.Nil(err)
 }
 
@@ -831,6 +835,9 @@ func TestMock(t *testing.T) {
 
 	done = ins.MultiMock(map[string]*Response{
 		"/": mockResp,
+	}, func(config *Config) (err error) {
+		assert.Equal("/", config.Route)
+		return nil
 	})
 	defer done()
 	resp, err = ins.Get("/")

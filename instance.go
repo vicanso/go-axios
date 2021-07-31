@@ -550,9 +550,15 @@ func (ins *Instance) EnhancePatch(result interface{}, url string, data interface
 }
 
 // Mock mock response
-func (ins *Instance) Mock(resp *Response) (done func()) {
+func (ins *Instance) Mock(resp *Response, interceptors ...RequestInterceptor) (done func()) {
 	originalAdapter := ins.Config.Adapter
-	ins.Config.Adapter = func(_ *Config) (*Response, error) {
+	ins.Config.Adapter = func(c *Config) (*Response, error) {
+		for _, fn := range interceptors {
+			err := fn(c)
+			if err != nil {
+				return nil, err
+			}
+		}
 		return resp, nil
 	}
 	return func() {
@@ -561,9 +567,15 @@ func (ins *Instance) Mock(resp *Response) (done func()) {
 }
 
 // MultiMock multi mock response
-func (ins *Instance) MultiMock(multi map[string]*Response) (done func()) {
+func (ins *Instance) MultiMock(multi map[string]*Response, interceptors ...RequestInterceptor) (done func()) {
 	originalAdapter := ins.Config.Adapter
 	ins.Config.Adapter = func(c *Config) (*Response, error) {
+		for _, fn := range interceptors {
+			err := fn(c)
+			if err != nil {
+				return nil, err
+			}
+		}
 		resp := multi[c.Route]
 		return resp, nil
 	}
