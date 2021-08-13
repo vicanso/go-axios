@@ -181,6 +181,14 @@ type Stats struct {
 	Size                int    `json:"size,omitempty"`
 }
 
+func ceilToMs(d time.Duration) int {
+	offset := 0
+	if d%time.Millisecond != 0 {
+		offset++
+	}
+	return int(d.Milliseconds()) + offset
+}
+
 // GetStats get stats of request
 func GetStats(conf *Config, err error) (stats Stats) {
 	status := -1
@@ -210,25 +218,20 @@ func GetStats(conf *Config, err error) (stats Stats) {
 		timelineStats := ht.Stats()
 		stats.Use = int(timelineStats.Total.Milliseconds())
 
-		dns := timelineStats.DNSLookup.Milliseconds()
-		if dns != 0 {
-			stats.DNSUse = int(dns)
+		if timelineStats.DNSLookup != 0 {
+			stats.DNSUse = ceilToMs(timelineStats.DNSLookup)
 		}
-		tcp := timelineStats.TCPConnection.Milliseconds()
-		if tcp != 0 {
-			stats.TCPUse = int(tcp)
+		if timelineStats.TCPConnection != 0 {
+			stats.TCPUse = ceilToMs(timelineStats.TCPConnection)
 		}
-		tls := timelineStats.TLSHandshake.Milliseconds()
-		if tls != 0 {
-			stats.TLSUse = int(tls)
+		if timelineStats.TLSHandshake != 0 {
+			stats.TLSUse = ceilToMs(timelineStats.TLSHandshake)
 		}
-		serverProcessing := timelineStats.ServerProcessing.Milliseconds()
-		if serverProcessing != 0 {
-			stats.ServerProcessingUse = int(serverProcessing)
+		if timelineStats.ServerProcessing != 0 {
+			stats.ServerProcessingUse = ceilToMs(timelineStats.ServerProcessing)
 		}
-		contentTransfer := timelineStats.ContentTransfer.Milliseconds()
-		if contentTransfer != 0 {
-			stats.ContentTransferUse = int(contentTransfer)
+		if timelineStats.ContentTransfer != 0 {
+			stats.ContentTransferUse = ceilToMs(timelineStats.ContentTransfer)
 		}
 	}
 	return stats

@@ -139,7 +139,7 @@ func TestGetStats(t *testing.T) {
 		GetConn: time.Unix(2, 0),
 
 		DNSStart: time.Unix(1, 0),
-		DNSDone:  time.Unix(3, 0),
+		DNSDone:  time.Unix(3, 1),
 
 		ConnectStart: time.Unix(1, 0),
 		ConnectDone:  time.Unix(4, 0),
@@ -174,7 +174,7 @@ func TestGetStats(t *testing.T) {
 	assert.Equal(400, stats.Status)
 	assert.True(stats.Reused)
 	assert.Equal("1.1.1.1:80", stats.Addr)
-	assert.Equal(2000, stats.DNSUse)
+	assert.Equal(2001, stats.DNSUse)
 	assert.Equal(3000, stats.TCPUse)
 	assert.Equal(4000, stats.TLSUse)
 	assert.Equal(5000, stats.ServerProcessingUse)
