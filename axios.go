@@ -182,6 +182,9 @@ type Stats struct {
 }
 
 func ceilToMs(d time.Duration) int {
+	if d == 0 {
+		return 0
+	}
 	offset := 0
 	if d%time.Millisecond != 0 {
 		offset++
@@ -216,23 +219,14 @@ func GetStats(conf *Config, err error) (stats Stats) {
 		stats.Addr = ht.Addr
 
 		timelineStats := ht.Stats()
-		stats.Use = int(timelineStats.Total.Milliseconds())
+		stats.Use = ceilToMs(timelineStats.Total)
 
-		if timelineStats.DNSLookup != 0 {
-			stats.DNSUse = ceilToMs(timelineStats.DNSLookup)
-		}
-		if timelineStats.TCPConnection != 0 {
-			stats.TCPUse = ceilToMs(timelineStats.TCPConnection)
-		}
-		if timelineStats.TLSHandshake != 0 {
-			stats.TLSUse = ceilToMs(timelineStats.TLSHandshake)
-		}
-		if timelineStats.ServerProcessing != 0 {
-			stats.ServerProcessingUse = ceilToMs(timelineStats.ServerProcessing)
-		}
-		if timelineStats.ContentTransfer != 0 {
-			stats.ContentTransferUse = ceilToMs(timelineStats.ContentTransfer)
-		}
+		stats.DNSUse = ceilToMs(timelineStats.DNSLookup)
+		stats.TCPUse = ceilToMs(timelineStats.TCPConnection)
+		stats.TLSUse = ceilToMs(timelineStats.TLSHandshake)
+		stats.ServerProcessingUse = ceilToMs(timelineStats.ServerProcessing)
+		stats.ContentTransferUse = ceilToMs(timelineStats.ContentTransfer)
+
 	}
 	return stats
 }
