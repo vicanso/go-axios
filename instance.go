@@ -37,6 +37,7 @@ type (
 		concurrency uint32
 	}
 )
+type CustomMocker func(*Config) (*Response, error)
 
 var ErrTooManyRequests = errors.New("too many request of the instance")
 
@@ -551,8 +552,7 @@ func (ins *Instance) EnhancePatch(result interface{}, url string, data interface
 
 // Mock mock response
 func (ins *Instance) Mock(resp *Response, interceptors ...RequestInterceptor) (done func()) {
-	originalAdapter := ins.Config.Adapter
-	ins.Config.Adapter = func(c *Config) (*Response, error) {
+	return ins.CustomMock(func(c *Config) (*Response, error) {
 		for _, fn := range interceptors {
 			err := fn(c)
 			if err != nil {
@@ -560,6 +560,14 @@ func (ins *Instance) Mock(resp *Response, interceptors ...RequestInterceptor) (d
 			}
 		}
 		return resp, nil
+	})
+}
+
+// CustomMock sets custom mock response
+func (ins *Instance) CustomMock(fn CustomMocker) (done func()) {
+	originalAdapter := ins.Config.Adapter
+	ins.Config.Adapter = func(c *Config) (*Response, error) {
+		return fn(c)
 	}
 	return func() {
 		ins.Config.Adapter = originalAdapter
@@ -568,8 +576,7 @@ func (ins *Instance) Mock(resp *Response, interceptors ...RequestInterceptor) (d
 
 // MultiMock multi mock response
 func (ins *Instance) MultiMock(multi map[string]*Response, interceptors ...RequestInterceptor) (done func()) {
-	originalAdapter := ins.Config.Adapter
-	ins.Config.Adapter = func(c *Config) (*Response, error) {
+	return ins.CustomMock(func(c *Config) (*Response, error) {
 		for _, fn := range interceptors {
 			err := fn(c)
 			if err != nil {
@@ -578,10 +585,7 @@ func (ins *Instance) MultiMock(multi map[string]*Response, interceptors ...Reque
 		}
 		resp := multi[c.Route]
 		return resp, nil
-	}
-	return func() {
-		ins.Config.Adapter = originalAdapter
-	}
+	})
 }
 
 // AppendRequestInterceptor appends request interceptor to instance
