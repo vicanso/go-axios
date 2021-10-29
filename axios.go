@@ -230,3 +230,25 @@ func GetStats(conf *Config, err error) (stats Stats) {
 	}
 	return stats
 }
+
+// MapToValues converts map[string]string to url.Values
+func MapToValues(data map[string]string) url.Values {
+	query := make(url.Values)
+	for k, v := range data {
+		query.Add(k, v)
+	}
+	return query
+}
+
+// MapToValuesOmitEmpty converts map[string]string to url.Values,
+// and omit empty value
+func MapToValuesOmitEmpty(data map[string]string) url.Values {
+	query := make(url.Values)
+	for k, v := range data {
+		if v == "" {
+			continue
+		}
+		query.Add(k, v)
+	}
+	return query
+}

@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"net/url"
 	"os"
 	"syscall"
 	"testing"
@@ -182,4 +183,38 @@ func TestGetStats(t *testing.T) {
 	assert.Equal(11000, stats.Use)
 
 	assert.Equal(4, stats.Size)
+}
+
+func TestMapToQuery(t *testing.T) {
+	assert := assert.New(t)
+
+	query := MapToValues(map[string]string{
+		"a": "1",
+		"b": "2",
+		"c": "",
+	})
+	assert.Equal(url.Values{
+		"a": []string{
+			"1",
+		},
+		"b": []string{
+			"2",
+		},
+		"c": []string{
+			"",
+		},
+	}, query)
+
+	query = MapToValuesOmitEmpty(map[string]string{
+		"a": "1",
+		"b": "2",
+	})
+	assert.Equal(url.Values{
+		"a": []string{
+			"1",
+		},
+		"b": []string{
+			"2",
+		},
+	}, query)
 }
