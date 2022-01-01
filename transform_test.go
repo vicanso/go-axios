@@ -130,4 +130,14 @@ func TestConvertRequestBody(t *testing.T) {
 		assert.Equal([]byte(data), body)
 		assert.Empty(header.Get(headerContentType))
 	})
+
+	t.Run("reader", func(t *testing.T) {
+		assert := assert.New(t)
+		buffer := bytes.NewBufferString("abc")
+		header := make(http.Header)
+		body, err := convertRequestBody(buffer, header)
+		assert.Nil(err)
+		assert.Equal(buffer, body)
+		assert.Empty(header.Get(headerContentType))
+	})
 }

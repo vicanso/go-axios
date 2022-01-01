@@ -108,6 +108,11 @@ func Patch(url string, data interface{}, query ...url.Values) (resp *Response, e
 	return defaultIns.Patch(url, data, query...)
 }
 
+// Upload upload file by default instance
+func Upload(url string, file *multipartFile, query ...url.Values) (resp *Response, err error) {
+	return defaultIns.Upload(url, file, query...)
+}
+
 // GetDefaultInstance get default instance
 func GetDefaultInstance() *Instance {
 	return defaultIns

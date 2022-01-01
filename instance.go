@@ -550,6 +550,57 @@ func (ins *Instance) EnhancePatch(result interface{}, url string, data interface
 	return
 }
 
+// uploadX uploads file
+func (ins *Instance) uploadX(context context.Context, result interface{}, url string, file *multipartFile, query ...url.Values) (resp *Response, err error) {
+	data, err := file.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	config := &Config{
+		Context: context,
+		URL:     url,
+		Method:  http.MethodPost,
+		Headers: http.Header{
+			headerContentType: {
+				file.FormDataContentType(),
+			},
+		},
+		Body: data,
+	}
+	if len(query) != 0 {
+		config.Query = query[0]
+	}
+	return ins.doRequest(config, result)
+}
+
+// UploadX uploads file with context
+func (ins *Instance) UploadX(context context.Context, url string, file *multipartFile, query ...url.Values) (resp *Response, err error) {
+	return ins.uploadX(context, nil, url, file, query...)
+}
+
+// Upload uploads file
+func (ins *Instance) Upload(url string, file *multipartFile, query ...url.Values) (resp *Response, err error) {
+	return ins.uploadX(context.Background(), nil, url, file, query...)
+}
+
+// EnhanceUploadX uploads file with context and convert response to result
+func (ins *Instance) EnhanceUploadX(context context.Context, result interface{}, url string, file *multipartFile, query ...url.Values) (err error) {
+	_, err = ins.uploadX(context, result, url, file, query...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// EnhanceUpload uploads file and convert response to result
+func (ins *Instance) EnhanceUpload(result interface{}, url string, file *multipartFile, query ...url.Values) (err error) {
+	_, err = ins.uploadX(context.Background(), result, url, file, query...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Mock mock response
 func (ins *Instance) Mock(resp *Response, interceptors ...RequestInterceptor) (done func()) {
 	return ins.CustomMock(func(c *Config) (*Response, error) {

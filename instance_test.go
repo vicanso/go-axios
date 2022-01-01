@@ -524,6 +524,10 @@ func TestRequest(t *testing.T) {
 			return nil, errors.New("type is invalid")
 		}
 
+		if config.URL == "/upload" {
+			return mockResp, nil
+		}
+
 		if config.Method == "POST" ||
 			config.Method == "PUT" ||
 			config.Method == "PATCH" {
@@ -678,6 +682,24 @@ func TestRequest(t *testing.T) {
 			url:    "/?type=1",
 			resp:   mockResp,
 			method: "PATCH",
+		},
+		// UploadX
+		{
+			fn: func() (*Response, error) {
+				return ins.UploadX(context.Background(), "/upload", NewMultipartFile(), mockQuery)
+			},
+			url:    "/upload?type=1",
+			resp:   mockResp,
+			method: "POST",
+		},
+		// Upload
+		{
+			fn: func() (*Response, error) {
+				return ins.Upload("/upload", NewMultipartFile(), mockQuery)
+			},
+			url:    "/upload?type=1",
+			resp:   mockResp,
+			method: "POST",
 		},
 	}
 

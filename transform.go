@@ -72,6 +72,11 @@ func setContentTypeIfUnset(headers http.Header, value string) {
 }
 
 func convertRequestBody(data interface{}, headers http.Header) (body interface{}, err error) {
+	// 如果是io reader，则不处理
+	if _, ok := data.(io.Reader); ok {
+		return data, nil
+	}
+
 	switch data := data.(type) {
 	case []byte:
 		body = data
