@@ -24,7 +24,7 @@ func TestMultipartFile(t *testing.T) {
 	assert := assert.New(t)
 
 	mf := NewMultipartFile()
-	mf.writer.SetBoundary("abc")
+	_ = mf.writer.SetBoundary("abc")
 
 	err := mf.AddFile("file", "test.go", []byte("Hello World!"))
 	assert.Nil(err)
