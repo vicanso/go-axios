@@ -31,15 +31,25 @@ import (
 	HT "github.com/vicanso/http-trace"
 )
 
+type baseConfig struct {
+	onErrors            ErrorListeners
+	onDones             DoneListeners
+	onBeforeNewRequests BeforeNewRequestListeners
+}
+
 type (
 	// OnError on error function
-	OnError func(err error, config *Config) (newErr error)
+	OnError        func(err error, config *Config) (newErr error)
+	ErrorListeners []OnError
 	// OnDone on done event
-	OnDone func(config *Config, resp *Response, err error)
+	OnDone        func(config *Config, resp *Response, err error)
+	DoneListeners []OnDone
 	// OnBeforeNewRequest on request create event
-	OnBeforeNewRequest func(config *Config) (err error)
+	OnBeforeNewRequest        func(config *Config) (err error)
+	BeforeNewRequestListeners []OnBeforeNewRequest
 	// Config http request config
 	Config struct {
+		baseConfig
 		Request  *http.Request
 		Response *Response
 		// Route the request route
@@ -95,6 +105,7 @@ type (
 	}
 	// InstanceConfig config of instance
 	InstanceConfig struct {
+		baseConfig
 		// BaseURL http request base url
 		BaseURL string
 		// TransformRequest transform request body
@@ -132,6 +143,62 @@ type (
 
 var ErrRequestDataTypeInvalid = errors.New("request data type is not supported")
 var ErrRequestIsForbidden = errors.New("request is forbidden")
+
+func (bc *baseConfig) AddErrorListener(listeners ...OnError) {
+	bc.onErrors = append(bc.onErrors, listeners...)
+}
+
+func (bc *baseConfig) AddDoneListener(listeners ...OnDone) {
+	bc.onDones = append(bc.onDones, listeners...)
+}
+
+func (bc *baseConfig) AddBeforeNewRequestListener(listeners ...OnBeforeNewRequest) {
+	bc.onBeforeNewRequests = append(bc.onBeforeNewRequests, listeners...)
+}
+
+func (conf *Config) doBeforeNewRequest() error {
+	fns := conf.onBeforeNewRequests
+	if conf.OnBeforeNewRequest != nil {
+		fns = append([]OnBeforeNewRequest{
+			conf.OnBeforeNewRequest,
+		}, fns...)
+	}
+	for _, fn := range fns {
+		err := fn(conf)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (conf *Config) doError(originalErr error) error {
+	fns := conf.onErrors
+	if conf.OnError != nil {
+		fns = append([]OnError{
+			conf.OnError,
+		}, fns...)
+	}
+	for _, fn := range fns {
+		err := fn(originalErr, conf)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (conf *Config) doDone(resp *Response, err error) {
+	fns := conf.onDones
+	if conf.OnDone != nil {
+		fns = append([]OnDone{
+			conf.OnDone,
+		}, fns...)
+	}
+	for _, fn := range fns {
+		fn(conf, resp, err)
+	}
+}
 
 // Get get value from config
 func (conf *Config) Get(key string) interface{} {

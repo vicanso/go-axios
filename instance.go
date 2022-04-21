@@ -117,6 +117,11 @@ func mergeConfig(config *Config, insConfig *InstanceConfig) {
 	if config.OnBeforeNewRequest == nil {
 		config.OnBeforeNewRequest = insConfig.OnBeforeNewRequest
 	}
+	config.AddBeforeNewRequestListener(insConfig.onBeforeNewRequests...)
+
+	config.AddErrorListener(insConfig.onErrors...)
+
+	config.AddDoneListener(insConfig.onDones...)
 }
 
 // NewInstance create a new instance
@@ -157,11 +162,14 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 		config.TransformRequest = DefaultTransformRequest
 	}
 
-	if config.OnBeforeNewRequest != nil {
-		err = config.OnBeforeNewRequest(config)
-		if err != nil {
-			return
-		}
+	err = config.doBeforeNewRequest()
+	if err != nil {
+		return
+	}
+	// 如果在before new request中有生成了响应数据
+	// 则直接返回
+	if config.Response != nil {
+		return config.Response, nil
 	}
 
 	req, err := newRequest(config)
@@ -253,8 +261,8 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 // doRequest do http request
 func (ins *Instance) doRequest(config *Config, result interface{}) (resp *Response, err error) {
 	resp, err = ins.request(config)
-	if err != nil && config.OnError != nil {
-		newErr := config.OnError(err, config)
+	if err != nil {
+		newErr := config.doError(err)
 		if newErr != nil {
 			err = newErr
 		}
@@ -265,9 +273,7 @@ func (ins *Instance) doRequest(config *Config, result interface{}) (resp *Respon
 		result != nil {
 		err = resp.JSON(result)
 	}
-	if config.OnDone != nil {
-		config.OnDone(config, resp, err)
-	}
+	config.doDone(resp, err)
 	return
 }
 

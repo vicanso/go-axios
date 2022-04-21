@@ -200,3 +200,26 @@ func TestCURL(t *testing.T) {
 	assert.Equal(`curl -XGET 'http://test.com/users/vip?a=1&a=2'`, conf.CURL())
 
 }
+
+func TestBaseConfig(t *testing.T) {
+	assert := assert.New(t)
+
+	bc := baseConfig{}
+
+	assert.Empty(bc.onBeforeNewRequests)
+	bc.AddBeforeNewRequestListener(func(config *Config) (err error) {
+		return nil
+	})
+	assert.Equal(1, len(bc.onBeforeNewRequests))
+
+	assert.Empty(bc.onErrors)
+	bc.AddErrorListener(func(err error, config *Config) (newErr error) {
+		return nil
+	})
+	assert.Equal(1, len(bc.onErrors))
+
+	assert.Empty(bc.onDones)
+	bc.AddDoneListener(func(config *Config, resp *Response, err error) {
+	})
+	assert.Equal(1, len(bc.onDones))
+}
