@@ -148,12 +148,23 @@ func (bc *baseConfig) AddErrorListener(listeners ...OnError) {
 	bc.onErrors = append(bc.onErrors, listeners...)
 }
 
+func (bc *baseConfig) PrependErrorListener(listeners ...OnError) {
+	bc.onErrors = append(listeners, bc.onErrors...)
+}
+
 func (bc *baseConfig) AddDoneListener(listeners ...OnDone) {
 	bc.onDones = append(bc.onDones, listeners...)
+}
+func (bc *baseConfig) PrependDoneListener(listeners ...OnDone) {
+	bc.onDones = append(listeners, bc.onDones...)
 }
 
 func (bc *baseConfig) AddBeforeNewRequestListener(listeners ...OnBeforeNewRequest) {
 	bc.onBeforeNewRequests = append(bc.onBeforeNewRequests, listeners...)
+}
+
+func (bc *baseConfig) PrependBeforeNewRequestListener(listeners ...OnBeforeNewRequest) {
+	bc.onBeforeNewRequests = append(listeners, bc.onBeforeNewRequests...)
 }
 
 func (conf *Config) doBeforeNewRequest() error {

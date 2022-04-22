@@ -117,11 +117,11 @@ func mergeConfig(config *Config, insConfig *InstanceConfig) {
 	if config.OnBeforeNewRequest == nil {
 		config.OnBeforeNewRequest = insConfig.OnBeforeNewRequest
 	}
-	config.AddBeforeNewRequestListener(insConfig.onBeforeNewRequests...)
+	config.PrependBeforeNewRequestListener(insConfig.onBeforeNewRequests...)
 
-	config.AddErrorListener(insConfig.onErrors...)
+	config.PrependErrorListener(insConfig.onErrors...)
 
-	config.AddDoneListener(insConfig.onDones...)
+	config.PrependDoneListener(insConfig.onDones...)
 }
 
 // NewInstance create a new instance

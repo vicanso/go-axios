@@ -207,19 +207,40 @@ func TestBaseConfig(t *testing.T) {
 	bc := baseConfig{}
 
 	assert.Empty(bc.onBeforeNewRequests)
+	// add
 	bc.AddBeforeNewRequestListener(func(config *Config) (err error) {
 		return nil
 	})
 	assert.Equal(1, len(bc.onBeforeNewRequests))
+
+	onBeforeNewRequests := bc.onBeforeNewRequests
+	// prepend
+	bc.PrependBeforeNewRequestListener(func(config *Config) (err error) {
+		return nil
+	})
+	assert.Equal(1, len(onBeforeNewRequests))
+	assert.Equal(2, len(bc.onBeforeNewRequests))
 
 	assert.Empty(bc.onErrors)
 	bc.AddErrorListener(func(err error, config *Config) (newErr error) {
 		return nil
 	})
 	assert.Equal(1, len(bc.onErrors))
+	onErrors := bc.onErrors
+	bc.PrependErrorListener(func(err error, config *Config) (newErr error) {
+		return nil
+	})
+	assert.Equal(1, len(onErrors))
+	assert.Equal(2, len(bc.onErrors))
 
 	assert.Empty(bc.onDones)
 	bc.AddDoneListener(func(config *Config, resp *Response, err error) {
 	})
 	assert.Equal(1, len(bc.onDones))
+	onDones := bc.onDones
+	bc.PrependDoneListener(func(config *Config, resp *Response, err error) {
+		return
+	})
+	assert.Equal(1, len(onDones))
+	assert.Equal(2, len(bc.onDones))
 }
