@@ -239,7 +239,6 @@ func TestBaseConfig(t *testing.T) {
 	assert.Equal(1, len(bc.onDones))
 	onDones := bc.onDones
 	bc.PrependDoneListener(func(config *Config, resp *Response, err error) {
-		return
 	})
 	assert.Equal(1, len(onDones))
 	assert.Equal(2, len(bc.onDones))
