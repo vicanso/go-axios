@@ -176,6 +176,7 @@ type Stats struct {
 	URI                 string `json:"uri,omitempty"`
 	Status              int    `json:"status,omitempty"`
 	Reused              bool   `json:"reused,omitempty"`
+	DNSCoalesced        bool   `json:"dnsCoalesced"`
 	Addr                string `json:"addr,omitempty"`
 	Use                 int    `json:"use,omitempty"`
 	DNSUse              int    `json:"dnsUse,omitempty"`
@@ -222,7 +223,7 @@ func GetStats(conf *Config, err error) (stats Stats) {
 	if ht != nil {
 		stats.Reused = ht.Reused
 		stats.Addr = ht.Addr
-
+		stats.DNSCoalesced = ht.DNSCoalesced
 		timelineStats := ht.Stats()
 		stats.Use = ceilToMs(timelineStats.Total)
 
