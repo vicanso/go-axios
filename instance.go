@@ -183,7 +183,6 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 		}
 		trace, ht := HT.NewClientTrace()
 		ctx = httptrace.WithClientTrace(ctx, trace)
-		defer ht.Finish()
 		config.HTTPTrace = ht
 		config.Context = ctx
 	}
@@ -231,6 +230,9 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 	}
 
 	resp, err = adapter(config)
+	if config.HTTPTrace != nil {
+		config.HTTPTrace.Finish()
+	}
 	config.Response = resp
 	if err != nil {
 		return
