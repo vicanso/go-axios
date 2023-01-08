@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -46,7 +45,7 @@ func createEncodingTransform(encoding string, fn newReader) TransformResponse {
 		if err != nil {
 			return
 		}
-		data, err = ioutil.ReadAll(reader)
+		data, err = io.ReadAll(reader)
 		if err != nil {
 			return
 		}

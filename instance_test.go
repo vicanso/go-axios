@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -154,7 +154,7 @@ func TestNewRequest(t *testing.T) {
 			assert.Equal(tt.url, req.URL.String())
 			assert.Equal(tt.route, tt.config.Route)
 			if tt.postBody != nil {
-				buf, _ := ioutil.ReadAll(req.Body)
+				buf, _ := io.ReadAll(req.Body)
 				assert.Equal(tt.postBody, buf)
 			}
 		}
@@ -531,7 +531,7 @@ func TestRequest(t *testing.T) {
 		if config.Method == "POST" ||
 			config.Method == "PUT" ||
 			config.Method == "PATCH" {
-			buf, _ := ioutil.ReadAll(config.Request.Body)
+			buf, _ := io.ReadAll(config.Request.Body)
 			if string(buf) != `{"key":"1"}` {
 				return nil, errors.New("request data is invalid")
 			}

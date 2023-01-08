@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -431,7 +430,7 @@ func (conf *Config) CURL() string {
 
 	r, _ := conf.getRequestBody()
 	if r != nil {
-		buf, _ := ioutil.ReadAll(r)
+		buf, _ := io.ReadAll(r)
 		builder.WriteString(fmt.Sprintf(`-d '%s' `, string(buf)))
 	}
 
