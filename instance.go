@@ -216,7 +216,7 @@ func (ins *Instance) request(config *Config) (resp *Response, err error) {
 	}
 	// 如果未设置Accept，则设置默认值 application/json, text/plain, */*
 	if req.Header.Get("Accept") == "" {
-		req.Header.Set("Accpet", "application/json, text/plain, */*")
+		req.Header.Set("Accept", "application/json, text/plain, */*")
 	}
 
 	config.Request = req
