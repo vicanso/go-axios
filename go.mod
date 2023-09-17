@@ -3,9 +3,9 @@ module github.com/vicanso/go-axios
 go 1.17
 
 require (
-	github.com/andybalholm/brotli v1.0.4
-	github.com/stretchr/testify v1.8.1
-	github.com/vicanso/http-trace v1.0.7
+	github.com/andybalholm/brotli v1.0.5
+	github.com/stretchr/testify v1.8.4
+	github.com/vicanso/http-trace v1.1.0
 	gopkg.in/h2non/gock.v1 v1.1.2
 )
 

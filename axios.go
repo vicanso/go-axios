@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -182,6 +183,7 @@ type Stats struct {
 	DNSUse              int    `json:"dnsUse,omitempty"`
 	TCPUse              int    `json:"tcpUse,omitempty"`
 	TLSUse              int    `json:"tlsUse,omitempty"`
+	RequestSendUse      int    `json:"requestSendUse"`
 	ServerProcessingUse int    `json:"serverProcessingUse,omitempty"`
 	ContentTransferUse  int    `json:"contentTransferUse,omitempty"`
 	Size                int    `json:"size,omitempty"`
@@ -225,11 +227,13 @@ func GetStats(conf *Config, err error) (stats Stats) {
 		stats.Addr = ht.Addr
 		stats.DNSCoalesced = ht.DNSCoalesced
 		timelineStats := ht.Stats()
+		fmt.Println(timelineStats)
 		stats.Use = ceilToMs(timelineStats.Total)
 
 		stats.DNSUse = ceilToMs(timelineStats.DNSLookup)
 		stats.TCPUse = ceilToMs(timelineStats.TCPConnection)
 		stats.TLSUse = ceilToMs(timelineStats.TLSHandshake)
+		stats.RequestSendUse = ceilToMs(timelineStats.RequestSend)
 		stats.ServerProcessingUse = ceilToMs(timelineStats.ServerProcessing)
 		stats.ContentTransferUse = ceilToMs(timelineStats.ContentTransfer)
 

@@ -149,10 +149,13 @@ func TestGetStats(t *testing.T) {
 		TLSHandshakeDone:  time.Unix(5, 0),
 
 		GotConnect:           time.Unix(1, 0),
+		WroteHeaders:         time.Unix(2, 0),
+		WroteRequest:         time.Unix(3, 0),
 		GotFirstResponseByte: time.Unix(6, 0),
 
 		Done: time.Unix(12, 0),
 	}
+
 	assert := assert.New(t)
 	conf := &Config{
 		Method:  "GET",
@@ -178,7 +181,8 @@ func TestGetStats(t *testing.T) {
 	assert.Equal(2001, stats.DNSUse)
 	assert.Equal(3000, stats.TCPUse)
 	assert.Equal(4000, stats.TLSUse)
-	assert.Equal(5000, stats.ServerProcessingUse)
+	assert.Equal(1000, stats.RequestSendUse)
+	assert.Equal(3000, stats.ServerProcessingUse)
 	assert.Equal(6000, stats.ContentTransferUse)
 	assert.Equal(11000, stats.Use)
 
