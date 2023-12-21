@@ -431,7 +431,7 @@ func (conf *Config) CURL() string {
 	r, _ := conf.getRequestBody()
 	if r != nil {
 		buf, _ := io.ReadAll(r)
-		builder.WriteString(fmt.Sprintf(`-d '%s' `, string(buf)))
+		builder.WriteString(fmt.Sprintf(`-d '%s' `, strings.ReplaceAll(string(buf), "'", "\u0027")))
 	}
 
 	for key, values := range conf.Headers {
