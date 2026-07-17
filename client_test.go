@@ -38,6 +38,13 @@ func newHTTPClient() *http.Client {
 	}
 }
 
+// newGockClient creates a client intercepted by gock.
+func newGockClient(opts ...ClientOption) *Client {
+	c := NewClient(opts...)
+	gock.InterceptClient(c.GetConfig().HTTPClient)
+	return c
+}
+
 func TestClientGet(t *testing.T) {
 	assert := assert.New(t)
 	defer gock.Off()
@@ -49,7 +56,7 @@ func TestClientGet(t *testing.T) {
 			"account": "tree",
 		})
 
-	c := NewClient(
+	c := newGockClient(
 		WithBaseURL("http://aslant.site"),
 	)
 	resp, err := c.Get(context.Background(), "/users/me", Query("t", "1"))
@@ -71,7 +78,7 @@ func TestClientParam(t *testing.T) {
 		Reply(200).
 		BodyString("ok")
 
-	c := NewClient(WithBaseURL("http://aslant.site"))
+	c := newGockClient(WithBaseURL("http://aslant.site"))
 	resp, err := c.Get(context.Background(), "/users/:type", Param("type", "vip"))
 	assert.Nil(err)
 	assert.Equal(200, resp.Status)
@@ -466,9 +473,111 @@ func TestClientGetConfig(t *testing.T) {
 		WithBaseURL("http://aslant.site"),
 		WithTimeout(time.Second),
 		WithMaxConcurrency(10),
+		WithHeader("X-Token", "secret"),
+		WithHeaders(http.Header{"X-Extra": {"1"}}),
+		WithTransformRequest(DefaultTransformRequest...),
+		WithTransformResponse(DefaultTransformResponse...),
+		WithRequestInterceptor(func(config *Config) error { return nil }),
+		WithResponseInterceptor(func(resp *Response) error { return nil }),
+		WithOnError(func(err error, config *Config) error { return nil }),
+		WithOnDone(func(config *Config, resp *Response, err error) {}),
+		WithOnBeforeRequest(func(config *Config) error { return nil }),
+		WithMaxBodySize(1024),
+		WithValidateStatus(ValidateStatus2xx),
 	)
 	config := c.GetConfig()
 	assert.Equal("http://aslant.site", config.BaseURL)
 	assert.Equal(time.Second, config.Timeout)
 	assert.Equal(int32(10), config.MaxConcurrency)
+	assert.Equal(int64(1024), config.MaxBodySize)
+	assert.NotNil(config.ValidateStatus)
+	assert.NotNil(config.HTTPClient)
+	assert.Equal("1", config.Headers.Get("X-Extra"))
+
+	// GetConfig returns a deep copy of headers and slices
+	config.Headers.Set("X-Token", "mutated")
+	config.RequestInterceptors = nil
+	assert.Equal("secret", c.GetConfig().Headers.Get("X-Token"))
+	assert.Len(c.GetConfig().RequestInterceptors, 1)
+}
+
+func TestClientMaxBodySize(t *testing.T) {
+	assert := assert.New(t)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("0123456789"))
+	}))
+	defer ts.Close()
+
+	c := NewClient(
+		WithHTTPClient(newHTTPClient()),
+		WithMaxBodySize(5),
+	)
+	resp, err := c.Get(context.Background(), ts.URL)
+	assert.NotNil(err)
+	assert.True(errors.Is(err, ErrBodyTooLarge))
+	var axErr *Error
+	assert.True(errors.As(err, &axErr))
+	assert.Equal(ErrBodyTooLarge, axErr.Err)
+	assert.Equal(5, len(resp.Data))
+
+	// request option overrides unlimited client
+	c = NewClient(WithHTTPClient(newHTTPClient()))
+	resp, err = c.Get(context.Background(), ts.URL, MaxBodySize(3))
+	assert.True(errors.Is(err, ErrBodyTooLarge))
+	assert.Equal(3, len(resp.Data))
+}
+
+func TestClientValidateStatus(t *testing.T) {
+	assert := assert.New(t)
+
+	c := NewClient(
+		WithValidateStatus(ValidateStatus2xx),
+		WithAdapter(func(config *Config) (*Response, error) {
+			return &Response{
+				Status: 404,
+				Data:   []byte("missing"),
+			}, nil
+		}),
+	)
+	resp, err := c.Get(context.Background(), "http://aslant.site/")
+	assert.NotNil(err)
+	assert.NotNil(resp)
+	assert.Equal(404, resp.Status)
+	assert.True(errors.Is(err, ErrStatusInvalid))
+	var axErr *Error
+	assert.True(errors.As(err, &axErr))
+	assert.Equal(404, axErr.Status)
+	assert.Equal("missing", string(axErr.Response.Data))
+
+	// request option
+	c = NewClient(
+		WithAdapter(func(config *Config) (*Response, error) {
+			return &Response{Status: 500, Data: []byte("err")}, nil
+		}),
+	)
+	_, err = c.Get(context.Background(), "http://aslant.site/", StatusValidator(ValidateStatus2xx))
+	assert.True(errors.Is(err, ErrStatusInvalid))
+
+	// 2xx still succeeds
+	c = NewClient(
+		WithValidateStatus(ValidateStatus2xx),
+		WithAdapter(func(config *Config) (*Response, error) {
+			return &Response{Status: 201, Data: []byte("created")}, nil
+		}),
+	)
+	resp, err = c.Get(context.Background(), "http://aslant.site/")
+	assert.Nil(err)
+	assert.Equal(201, resp.Status)
+}
+
+func TestClientDefaultHTTPClientIsolated(t *testing.T) {
+	assert := assert.New(t)
+
+	c1 := NewClient()
+	c2 := NewClient()
+	assert.NotNil(c1.GetConfig().HTTPClient)
+	assert.NotNil(c2.GetConfig().HTTPClient)
+	assert.NotSame(c1.GetConfig().HTTPClient, c2.GetConfig().HTTPClient)
+	assert.NotSame(c1.GetConfig().HTTPClient, http.DefaultClient)
 }

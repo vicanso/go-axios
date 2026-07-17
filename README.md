@@ -9,7 +9,12 @@
 - 通过函数式选项（`ClientOption`/`RequestOption`）配置客户端与请求
 - 支持自定义的transform，可根据应用场景指定各类不同的参数格式
 - 支持Request与Response的interceptor，可针对请求参数与响应数据添加各类的转换处理
-- 默认支持gzip与br两种压缩方式，节约带宽占用
+- 默认支持gzip与br两种压缩方式（adapter 流式解压，单次缓冲），节约带宽占用
+- 可选 `ValidateStatus`（如 `ValidateStatus2xx`）与 `MaxBodySize` 响应体上限
+- 可选重试（`WithRetry` / `DefaultRetryConfig`），支持指数退避与 body 可重放约定
+- `Client.Clone` 派生配置（默认共享连接池）
+- 结构化错误 `*Error`，便于 `errors.As` / `errors.Is`
+- 未指定时为每个 Client 创建私有 `http.Client`（独立连接池）
 - 支持启用请求中的各事件记录，可细化请求的各场景耗时
 - 简单易用的Mock处理（并发安全）
 - Error与Done事件的支持，通过监听事件可快捷收集服务的出错与性能统计
@@ -59,6 +64,12 @@ func main() {
 	ins := axios.NewClient(
 		axios.WithBaseURL("https://aslant.site"),
 		axios.WithEnableTrace(),
+		// 可选：限制响应体大小；超出返回 errors.Is(err, axios.ErrBodyTooLarge)
+		axios.WithMaxBodySize(8<<20),
+		// 可选：非 2xx 视为错误（仍返回 *Response，err 为 *axios.Error）
+		axios.WithValidateStatus(axios.ValidateStatus2xx),
+		// 可选：幂等请求失败时重试（默认 GET/HEAD/OPTIONS）
+		axios.WithRetry(axios.DefaultRetryConfig()),
 		axios.WithHTTPClient(&http.Client{
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,

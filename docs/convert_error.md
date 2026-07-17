@@ -4,7 +4,41 @@ description: 接口请求出错的处理
 
 # Error
 
-默认的出错只针对HTTP请求失败，对于状态码为4xx、5xx的请求，需要针对各服务从响应数据中获取对应的出错信息，再转换为相应的自定义出错对象。在IPLocation这个服务，出错时响应的数据为`{"category": "出错类别", "message": "出错信息"}`，因此增加自定义出错转换，代码如下：
+默认情况下，HTTP 传输成功即 `err == nil`，**不会**因 4xx/5xx 自动失败。
+
+## 结构化错误 `*axios.Error`
+
+库在以下场景返回 `*axios.Error`（可用 `errors.As` / `errors.Is`）：
+
+| 场景 | `errors.Is` | 说明 |
+|------|-------------|------|
+| 状态码校验失败 | `axios.ErrStatusInvalid` | 配置了 `ValidateStatus` 且返回 false；`Response` 仍可用 |
+| 响应体超限 | `axios.ErrBodyTooLarge` | 超过 `MaxBodySize`；`Response.Data` 为截断后的数据 |
+
+```go
+resp, err := c.Get(ctx, "/users/me")
+if err != nil {
+	var axErr *axios.Error
+	if errors.As(err, &axErr) {
+		fmt.Println(axErr.Status, axErr.Response)
+	}
+}
+```
+
+## 仅接受 2xx
+
+```go
+c := axios.NewClient(
+	axios.WithBaseURL("https://api.example.com"),
+	axios.WithValidateStatus(axios.ValidateStatus2xx),
+)
+// 或单次请求：
+// c.Get(ctx, "/x", axios.StatusValidator(axios.ValidateStatus2xx))
+```
+
+## 按业务体转换 4xx/5xx
+
+若需要从响应 JSON 解析业务错误（而非仅状态码），仍推荐 ResponseInterceptor：
 
 ```go
 package main

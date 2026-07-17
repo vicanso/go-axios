@@ -164,6 +164,39 @@ func TestGetURLEscapeParam(t *testing.T) {
 	assert.Equal("/users/a%20b", config.GetURL())
 }
 
+func TestGetURLParamNoPrefixClash(t *testing.T) {
+	assert := assert.New(t)
+	config := &Config{
+		URL: "/items/:id/:idExtra",
+		Params: map[string]string{
+			"id":      "1",
+			"idExtra": "2",
+		},
+	}
+	assert.Equal("/items/1/2", config.GetURL())
+}
+
+func TestGetURLParamDoesNotTouchQuery(t *testing.T) {
+	assert := assert.New(t)
+	config := &Config{
+		URL: "/users/:type?ref=:type",
+		Params: map[string]string{
+			"type": "vip",
+		},
+	}
+	assert.Equal("/users/vip?ref=:type", config.GetURL())
+}
+
+func TestRequestOptionsMaxBodyAndValidate(t *testing.T) {
+	assert := assert.New(t)
+	config := &Config{}
+	MaxBodySize(1024)(config)
+	StatusValidator(ValidateStatus2xx)(config)
+	assert.Equal(int64(1024), config.MaxBodySize)
+	assert.True(config.ValidateStatus(200))
+	assert.False(config.ValidateStatus(404))
+}
+
 func TestGetRequestBody(t *testing.T) {
 	assert := assert.New(t)
 

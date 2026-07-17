@@ -46,6 +46,10 @@ type (
 	// If it sets config.Response, the request will not be sent and
 	// the response is returned directly.
 	OnBeforeRequest func(config *Config) (err error)
+	// ValidateStatus decides whether a response status code is considered
+	// successful. When it returns false, the request fails with *Error.
+	// If nil, all status codes are accepted (default).
+	ValidateStatus func(status int) bool
 
 	// Config is the config of a single http request.
 	Config struct {
@@ -65,8 +69,8 @@ type (
 		TransformResponse []TransformResponse
 		// Headers custom headers for request
 		Headers http.Header
-		// Params params for the request route, `:key` in url will be
-		// replaced by the url escaped value
+		// Params params for the request route, a path segment of the form
+		// `:key` will be replaced by the url path-escaped value
 		Params map[string]string
 		// Query query for request
 		Query url.Values
@@ -80,6 +84,22 @@ type (
 
 		// Timeout request timeout
 		Timeout time.Duration
+
+		// MaxBodySize is the maximum response body size in bytes.
+		// Zero means unlimited.
+		MaxBodySize int64
+
+		// ValidateStatus validates response status codes.
+		// If nil, all status codes are accepted.
+		ValidateStatus ValidateStatus
+
+		// Retry is the retry policy for this request.
+		// If nil, the client retry policy is used (if any).
+		Retry *RetryConfig
+
+		// Attempt is the 1-based attempt number of the last try.
+		// It is set by the client and is useful in OnDone / interceptors.
+		Attempt int
 
 		// HTTPClient http client to send the request
 		HTTPClient *http.Client
@@ -184,6 +204,35 @@ func Body(body any) RequestOption {
 func EnableTrace() RequestOption {
 	return func(config *Config) {
 		config.enableTrace = true
+	}
+}
+
+// MaxBodySize returns a request option that sets the max response body size.
+// Zero means unlimited.
+func MaxBodySize(n int64) RequestOption {
+	return func(config *Config) {
+		config.MaxBodySize = n
+	}
+}
+
+// StatusValidator returns a request option that sets ValidateStatus.
+func StatusValidator(fn ValidateStatus) RequestOption {
+	return func(config *Config) {
+		config.ValidateStatus = fn
+	}
+}
+
+// ValidateStatus2xx accepts only 2xx status codes.
+func ValidateStatus2xx(status int) bool {
+	return status >= http.StatusOK && status < http.StatusMultipleChoices
+}
+
+// RetryPolicy returns a request option that sets the retry policy.
+// See RetryConfig for body replay rules and defaults.
+func RetryPolicy(cfg RetryConfig) RequestOption {
+	return func(config *Config) {
+		cp := cfg
+		config.Retry = &cp
 	}
 }
 
@@ -338,9 +387,7 @@ func urlJoin(basicURL, url string) string {
 func (conf *Config) GetURL() string {
 	requestURL := urlJoin(conf.BaseURL, conf.URL)
 	if conf.Params != nil {
-		for key, value := range conf.Params {
-			requestURL = strings.ReplaceAll(requestURL, ":"+key, url.PathEscape(value))
-		}
+		requestURL = replacePathParams(requestURL, conf.Params)
 	}
 
 	if conf.Query != nil {
@@ -351,6 +398,39 @@ func (conf *Config) GetURL() string {
 		}
 	}
 	return requestURL
+}
+
+// replacePathParams replaces whole path segments of the form `:key`.
+// Only the path portion is modified; query and fragment are left unchanged.
+// Whole-segment matching avoids prefix clashes such as `:id` vs `:idExtra`.
+func replacePathParams(rawURL string, params map[string]string) string {
+	if len(params) == 0 {
+		return rawURL
+	}
+
+	pathPart, suffix := splitURLPath(rawURL)
+	segments := strings.Split(pathPart, "/")
+	for i, seg := range segments {
+		if seg == "" || seg[0] != ':' {
+			continue
+		}
+		name := seg[1:]
+		if value, ok := params[name]; ok {
+			segments[i] = url.PathEscape(value)
+		}
+	}
+	return strings.Join(segments, "/") + suffix
+}
+
+// splitURLPath splits rawURL into path (scheme/host/path) and the query/fragment suffix.
+func splitURLPath(rawURL string) (pathPart, suffix string) {
+	for i := 0; i < len(rawURL); i++ {
+		switch rawURL[i] {
+		case '?', '#':
+			return rawURL[:i], rawURL[i:]
+		}
+	}
+	return rawURL, ""
 }
 
 // getRequestBody gets the request body,

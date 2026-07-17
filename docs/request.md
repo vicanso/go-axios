@@ -38,6 +38,8 @@ resp, err := ins.Get(ctx, "/users/:type",
 	axios.Param("type", "vip"),
 	axios.Query("cache", "false"),
 	axios.Header("X-Request-Id", "1"),
+	// 可选：单次重试策略（覆盖 client 默认）
+	// axios.RetryPolicy(axios.DefaultRetryConfig()),
 )
 ```
 

@@ -17,6 +17,7 @@ package axios
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
@@ -40,6 +41,15 @@ type (
 		Headers http.Header
 		// Timeout request timeout
 		Timeout time.Duration
+		// MaxBodySize is the maximum response body size in bytes.
+		// Zero means unlimited.
+		MaxBodySize int64
+		// ValidateStatus validates response status codes.
+		// If nil, all status codes are accepted.
+		ValidateStatus ValidateStatus
+		// Retry is the default retry policy for all requests of the client.
+		// Request-level Retry overrides this when set.
+		Retry *RetryConfig
 		// HTTPClient http client to send requests
 		HTTPClient *http.Client
 		// Adapter custom adapter
@@ -213,6 +223,58 @@ func WithJSONUnmarshal(fn JSONUnmarshal) ClientOption {
 	}
 }
 
+// WithMaxBodySize sets the max response body size of client.
+// Zero means unlimited.
+func WithMaxBodySize(n int64) ClientOption {
+	return func(config *ClientConfig) {
+		config.MaxBodySize = n
+	}
+}
+
+// WithValidateStatus sets the status validator of client.
+// Use ValidateStatus2xx to reject non-2xx responses.
+func WithValidateStatus(fn ValidateStatus) ClientOption {
+	return func(config *ClientConfig) {
+		config.ValidateStatus = fn
+	}
+}
+
+// WithRetry sets the default retry policy of client.
+// Use DefaultRetryConfig for a conservative starting point.
+func WithRetry(cfg RetryConfig) ClientOption {
+	return func(config *ClientConfig) {
+		cp := cfg
+		config.Retry = &cp
+	}
+}
+
+// newDefaultHTTPClient creates a private http.Client with a cloned transport
+// so each client has an isolated connection pool and recommended defaults.
+func newDefaultHTTPClient() *http.Client {
+	return &http.Client{
+		Transport: newDefaultTransport(),
+	}
+}
+
+func newDefaultTransport() http.RoundTripper {
+	if t, ok := http.DefaultTransport.(*http.Transport); ok {
+		return t.Clone()
+	}
+	// Fallback when DefaultTransport is replaced by tests or custom runtimes.
+	return &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+}
+
 // NewClient creates a new client with options
 func NewClient(opts ...ClientOption) *Client {
 	config := ClientConfig{}
@@ -224,6 +286,9 @@ func NewClient(opts ...ClientOption) *Client {
 
 // NewClientWithConfig creates a new client with client config
 func NewClientWithConfig(config ClientConfig) *Client {
+	if config.HTTPClient == nil {
+		config.HTTPClient = newDefaultHTTPClient()
+	}
 	c := &Client{
 		config: config,
 	}
@@ -231,9 +296,47 @@ func NewClientWithConfig(config ClientConfig) *Client {
 	return c
 }
 
-// GetConfig returns a copy of the client config
+// GetConfig returns a deep copy of the client config.
+// Mutating the returned Headers or slices does not affect the client.
+// HTTPClient, Adapter and function values are shared by reference.
 func (c *Client) GetConfig() ClientConfig {
-	return c.config
+	return cloneClientConfig(c.config)
+}
+
+func cloneClientConfig(config ClientConfig) ClientConfig {
+	out := config
+	if config.Headers != nil {
+		out.Headers = config.Headers.Clone()
+	}
+	if config.TransformRequest != nil {
+		out.TransformRequest = append([]TransformRequest(nil), config.TransformRequest...)
+	}
+	if config.TransformResponse != nil {
+		out.TransformResponse = append([]TransformResponse(nil), config.TransformResponse...)
+	}
+	if config.RequestInterceptors != nil {
+		out.RequestInterceptors = append([]RequestInterceptor(nil), config.RequestInterceptors...)
+	}
+	if config.ResponseInterceptors != nil {
+		out.ResponseInterceptors = append([]ResponseInterceptor(nil), config.ResponseInterceptors...)
+	}
+	if config.OnError != nil {
+		out.OnError = append([]OnError(nil), config.OnError...)
+	}
+	if config.OnDone != nil {
+		out.OnDone = append([]OnDone(nil), config.OnDone...)
+	}
+	if config.OnBeforeRequest != nil {
+		out.OnBeforeRequest = append([]OnBeforeRequest(nil), config.OnBeforeRequest...)
+	}
+	if config.Retry != nil {
+		cp := *config.Retry
+		if config.Retry.Methods != nil {
+			cp.Methods = append([]string(nil), config.Retry.Methods...)
+		}
+		out.Retry = &cp
+	}
+	return out
 }
 
 // mergeConfig merges client config to request config
@@ -262,6 +365,15 @@ func (c *Client) mergeConfig(config *Config) {
 
 	if config.Timeout == 0 {
 		config.Timeout = clientConfig.Timeout
+	}
+	if config.MaxBodySize == 0 {
+		config.MaxBodySize = clientConfig.MaxBodySize
+	}
+	if config.ValidateStatus == nil {
+		config.ValidateStatus = clientConfig.ValidateStatus
+	}
+	if config.Retry == nil {
+		config.Retry = clientConfig.Retry
 	}
 	if config.HTTPClient == nil {
 		config.HTTPClient = clientConfig.HTTPClient
@@ -329,11 +441,6 @@ func (c *Client) request(ctx context.Context, config *Config) (resp *Response, e
 		return nil, ErrTooManyRequests
 	}
 
-	adapter := config.Adapter
-	if adapter == nil {
-		adapter = defaultAdapter
-	}
-
 	for _, fn := range config.OnBeforeRequest {
 		err = fn(config)
 		if err != nil {
@@ -343,21 +450,60 @@ func (c *Client) request(ctx context.Context, config *Config) (resp *Response, e
 	// 如果在before request中已生成响应数据，则直接返回
 	if config.Response != nil {
 		config.Response.Config = config
+		config.Attempt = 1
 		return config.Response, nil
 	}
 
-	if config.enableTrace {
-		trace, ht := HT.NewClientTrace()
-		ctx = httptrace.WithClientTrace(ctx, trace)
-		config.HTTPTrace = ht
-	}
-	// 设置超时
+	// overall timeout covers all attempts
 	if config.Timeout != 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, config.Timeout)
 		defer cancel()
 	}
-	config.ctx = ctx
+
+	maxAttempts := 1
+	if config.Retry != nil {
+		maxAttempts = config.Retry.maxAttempts()
+	}
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if attempt > 1 {
+			if sleepErr := sleepWithContext(ctx, config.Retry.delay(attempt-2)); sleepErr != nil {
+				// keep last response/error; surface context error if request had none
+				if err == nil {
+					err = sleepErr
+				}
+				return resp, err
+			}
+			// reset per-attempt fields before rebuilding the request
+			config.Response = nil
+			config.Request = nil
+			config.HTTPTrace = nil
+		}
+
+		config.Attempt = attempt
+		resp, err = c.doOnce(ctx, config)
+		if !shouldRetry(ctx, config, resp, err, attempt) {
+			return resp, err
+		}
+	}
+	return resp, err
+}
+
+// doOnce performs a single HTTP attempt (build request → adapter → transform → validate).
+func (c *Client) doOnce(ctx context.Context, config *Config) (resp *Response, err error) {
+	adapter := config.Adapter
+	if adapter == nil {
+		adapter = defaultAdapter
+	}
+
+	reqCtx := ctx
+	if config.enableTrace {
+		trace, ht := HT.NewClientTrace()
+		reqCtx = httptrace.WithClientTrace(ctx, trace)
+		config.HTTPTrace = ht
+	}
+	config.ctx = reqCtx
 
 	req, err := newRequest(config)
 	if err != nil {
@@ -423,7 +569,24 @@ func (c *Client) request(ctx context.Context, config *Config) (resp *Response, e
 		}
 	}
 
+	if config.ValidateStatus != nil && !config.ValidateStatus(resp.Status) {
+		return resp, newStatusError(config, resp)
+	}
+
 	return
+}
+
+// Clone returns a new client with a deep-copied config, then applies opts.
+// HTTPClient is shared with the source client unless overridden by WithHTTPClient.
+// Mock state and in-flight concurrency counters are not copied.
+func (c *Client) Clone(opts ...ClientOption) *Client {
+	cfg := cloneClientConfig(c.config)
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	// Preserve shared HTTPClient from source when opts did not replace it.
+	// NewClientWithConfig only allocates when HTTPClient is nil.
+	return NewClientWithConfig(cfg)
 }
 
 // Do sends a http request with the config,

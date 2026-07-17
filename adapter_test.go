@@ -15,6 +15,12 @@
 package axios
 
 import (
+	"bytes"
+	"compress/gzip"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -62,4 +68,90 @@ func TestAdapter(t *testing.T) {
 		assert.NotNil(err)
 		assert.True(strings.Contains(err.Error(), "cannot match any request"))
 	})
+}
+
+func TestAdapterMaxBodySize(t *testing.T) {
+	assert := assert.New(t)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("hello world"))
+	}))
+	defer ts.Close()
+
+	config := &Config{
+		URL:         ts.URL,
+		Method:      http.MethodGet,
+		MaxBodySize: 5,
+		HTTPClient:  &http.Client{Transport: &http.Transport{}},
+	}
+	config.Request, _ = newRequest(config)
+	resp, err := defaultAdapter(config)
+	assert.True(errors.Is(err, ErrBodyTooLarge))
+	assert.Equal("hello", string(resp.Data))
+}
+
+func TestAdapterDecodeGzipWhileReading(t *testing.T) {
+	assert := assert.New(t)
+
+	raw := []byte("decoded-body")
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	_, _ = zw.Write(raw)
+	_ = zw.Close()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(headerContentEncoding, gzipEncoding)
+		_, _ = w.Write(buf.Bytes())
+	}))
+	defer ts.Close()
+
+	config := &Config{
+		URL:        ts.URL,
+		Method:     http.MethodGet,
+		HTTPClient: &http.Client{Transport: &http.Transport{}},
+	}
+	config.Request, _ = newRequest(config)
+	resp, err := defaultAdapter(config)
+	assert.Nil(err)
+	assert.Equal(string(raw), string(resp.Data))
+	assert.Empty(resp.Headers.Get(headerContentEncoding))
+}
+
+func TestReadAllInitCap(t *testing.T) {
+	assert := assert.New(t)
+	data, err := ReadAllInitCap(strings.NewReader("abc"), 0)
+	assert.Nil(err)
+	assert.Equal("abc", string(data))
+
+	data, err = ReadAllInitCap(io.NopCloser(strings.NewReader("xyz")), 2)
+	assert.Nil(err)
+	assert.Equal("xyz", string(data))
+}
+
+func TestWrapDecodingReader(t *testing.T) {
+	assert := assert.New(t)
+
+	// no encoding
+	h := make(http.Header)
+	r, c, err := wrapDecodingReader(strings.NewReader("plain"), h)
+	assert.Nil(err)
+	assert.Nil(c)
+	data, _ := io.ReadAll(r)
+	assert.Equal("plain", string(data))
+
+	// unknown encoding left as-is
+	h = make(http.Header)
+	h.Set(headerContentEncoding, "deflate")
+	r, c, err = wrapDecodingReader(strings.NewReader("x"), h)
+	assert.Nil(err)
+	assert.Nil(c)
+	assert.Equal("deflate", h.Get(headerContentEncoding))
+	data, _ = io.ReadAll(r)
+	assert.Equal("x", string(data))
+
+	// invalid gzip
+	h = make(http.Header)
+	h.Set(headerContentEncoding, gzipEncoding)
+	_, _, err = wrapDecodingReader(strings.NewReader("not-gzip"), h)
+	assert.NotNil(err)
 }

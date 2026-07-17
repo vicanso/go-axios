@@ -15,9 +15,13 @@
 package axios
 
 import (
+	"compress/gzip"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
+
+	"github.com/andybalholm/brotli"
 )
 
 type (
@@ -52,6 +56,33 @@ func ReadAllInitCap(r io.Reader, initCap int) ([]byte, error) {
 	}
 }
 
+// wrapDecodingReader wraps body with a decoder based on Content-Encoding.
+// On success it clears Content-Encoding and Content-Length so callers see
+// decoded bytes. NeedClose is true when the decoder owns a Close method
+// that must be called (gzip reader).
+func wrapDecodingReader(body io.Reader, headers http.Header) (r io.Reader, needClose io.Closer, err error) {
+	encoding := headers.Get(headerContentEncoding)
+	if encoding == "" {
+		return body, nil, nil
+	}
+	switch {
+	case strings.EqualFold(encoding, gzipEncoding):
+		gr, err := gzip.NewReader(body)
+		if err != nil {
+			return nil, nil, err
+		}
+		headers.Del(headerContentEncoding)
+		headers.Del(headerContentLength)
+		return gr, gr, nil
+	case strings.EqualFold(encoding, brEncoding):
+		headers.Del(headerContentEncoding)
+		headers.Del(headerContentLength)
+		return brotli.NewReader(body), nil, nil
+	default:
+		return body, nil, nil
+	}
+}
+
 func defaultAdapter(config *Config) (resp *Response, err error) {
 	req := config.Request
 
@@ -74,14 +105,42 @@ func defaultAdapter(config *Config) (resp *Response, err error) {
 	defer func() {
 		_ = res.Body.Close()
 	}()
+
+	body := io.Reader(res.Body)
+	decoder, decoderCloser, err := wrapDecodingReader(body, res.Header)
+	if err != nil {
+		return
+	}
+	if decoderCloser != nil {
+		defer func() {
+			_ = decoderCloser.Close()
+		}()
+	}
+	body = decoder
+
+	// Limit is applied to decoded bytes so MaxBodySize matches payload size.
+	if config.MaxBodySize > 0 {
+		body = io.LimitReader(body, config.MaxBodySize+1)
+	}
+
 	size := 0
+	// Content-Length is only a useful hint when the body is not decoded
+	// (decoding clears Content-Encoding / Content-Length on the headers).
 	contentLength := res.Header.Get(headerContentLength)
 	if contentLength != "" {
 		size, _ = strconv.Atoi(contentLength)
 	}
-	data, err := ReadAllInitCap(res.Body, size)
+	if config.MaxBodySize > 0 && size > 0 && int64(size) > config.MaxBodySize {
+		size = int(config.MaxBodySize)
+	}
+
+	data, err := ReadAllInitCap(body, size)
 	if err != nil {
 		return
+	}
+	if config.MaxBodySize > 0 && int64(len(data)) > config.MaxBodySize {
+		resp.Data = data[:config.MaxBodySize]
+		return resp, newBodyTooLargeError(config, resp)
 	}
 	resp.Data = data
 
