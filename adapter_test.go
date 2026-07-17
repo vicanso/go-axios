@@ -62,5 +62,4 @@ func TestAdapter(t *testing.T) {
 		assert.NotNil(err)
 		assert.True(strings.Contains(err.Error(), "cannot match any request"))
 	})
-
 }

@@ -36,7 +36,7 @@ func doGzip(buf []byte, level int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	w.Close()
+	_ = w.Close()
 	return b.Bytes(), nil
 }
 
@@ -46,7 +46,7 @@ func TestTransformResponse(t *testing.T) {
 		buf := []byte("abcd")
 		transform := createEncodingTransform(brEncoding, newBrReader)
 		header := make(http.Header)
-		data, err := transform(buf, header)
+		data, err := transform(nil, buf, header)
 		assert.Nil(err)
 		assert.Equal(buf, data)
 	})
@@ -61,7 +61,7 @@ func TestTransformResponse(t *testing.T) {
 		header := make(http.Header)
 		header.Set(headerContentEncoding, brEncoding)
 		header.Set(headerContentLength, "100")
-		data, err := transform(buf, header)
+		data, err := transform(nil, buf, header)
 		assert.Nil(err)
 		assert.Equal("abcd", string(data))
 		assert.Empty(header.Get(headerContentLength))
@@ -76,7 +76,7 @@ func TestTransformResponse(t *testing.T) {
 		transform := createEncodingTransform(gzipEncoding, newGzipReader)
 		header := make(http.Header)
 		header.Set(headerContentEncoding, gzipEncoding)
-		data, err := transform(buf, header)
+		data, err := transform(nil, buf, header)
 		assert.Nil(err)
 		assert.Equal(rawData, data)
 		assert.Empty(header.Get(headerContentLength))
@@ -85,59 +85,65 @@ func TestTransformResponse(t *testing.T) {
 }
 
 func TestConvertRequestBody(t *testing.T) {
+	newConfig := func() *Config {
+		return &Config{
+			Headers: make(http.Header),
+		}
+	}
+
 	t.Run("www-form-urlencoded", func(t *testing.T) {
 		assert := assert.New(t)
 		data := make(url.Values)
 		data.Add("a", "1")
 		data.Add("a", "2")
 		data.Add("b", "3")
-		header := make(http.Header)
-		body, err := convertRequestBody(data, header)
+		config := newConfig()
+		body, err := convertRequestBody(config, data)
 		assert.Nil(err)
 		assert.Equal("a=1&a=2&b=3", string(body.([]byte)))
-		assert.Equal(contentTypeWWWFormUrlencoded, header.Get(headerContentType))
+		assert.Equal(contentTypeWWWFormUrlencoded, config.Headers.Get(headerContentType))
 	})
 
 	t.Run("json", func(t *testing.T) {
 		assert := assert.New(t)
-		data := map[string]interface{}{
+		data := map[string]any{
 			"a": 1,
 			"b": "2",
 			"c": true,
 		}
-		header := make(http.Header)
-		body, err := convertRequestBody(data, header)
+		config := newConfig()
+		body, err := convertRequestBody(config, data)
 		assert.Nil(err)
 		assert.Equal(`{"a":1,"b":"2","c":true}`, string(body.([]byte)))
-		assert.Equal(contentTypeJSON, header.Get(headerContentType))
+		assert.Equal(contentTypeJSON, config.Headers.Get(headerContentType))
 	})
 
 	t.Run("byte", func(t *testing.T) {
 		assert := assert.New(t)
 		data := []byte("abcd")
-		header := make(http.Header)
-		body, err := convertRequestBody(data, header)
+		config := newConfig()
+		body, err := convertRequestBody(config, data)
 		assert.Nil(err)
 		assert.Equal(data, body)
-		assert.Empty(header.Get(headerContentType))
+		assert.Empty(config.Headers.Get(headerContentType))
 	})
 	t.Run("string", func(t *testing.T) {
 		assert := assert.New(t)
 		data := "abcd"
-		header := make(http.Header)
-		body, err := convertRequestBody(data, header)
+		config := newConfig()
+		body, err := convertRequestBody(config, data)
 		assert.Nil(err)
 		assert.Equal([]byte(data), body)
-		assert.Empty(header.Get(headerContentType))
+		assert.Empty(config.Headers.Get(headerContentType))
 	})
 
 	t.Run("reader", func(t *testing.T) {
 		assert := assert.New(t)
 		buffer := bytes.NewBufferString("abc")
-		header := make(http.Header)
-		body, err := convertRequestBody(buffer, header)
+		config := newConfig()
+		body, err := convertRequestBody(config, buffer)
 		assert.Nil(err)
 		assert.Equal(buffer, body)
-		assert.Empty(header.Get(headerContentType))
+		assert.Empty(config.Headers.Get(headerContentType))
 	})
 }

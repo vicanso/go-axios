@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -43,80 +42,142 @@ const (
 
 type (
 	// JSONMarshal json marshal function type
-	JSONMarshal func(interface{}) ([]byte, error)
+	JSONMarshal func(any) ([]byte, error)
 	// JSONUnmarshal json unmarshal function type
-	JSONUnmarshal func([]byte, interface{}) error
+	JSONUnmarshal func([]byte, any) error
 )
 
-// defaultTimeout is for all request which not set timeout
 var (
-	defaultIns = NewInstance(&InstanceConfig{
-		Timeout: time.Minute,
-	})
-	// default json marshal
-	jsonMarshal = json.Marshal
-	// default json unmarshal
-	jsonUnmarshal = json.Unmarshal
+	defaultJSONMarshal   JSONMarshal   = json.Marshal
+	defaultJSONUnmarshal JSONUnmarshal = json.Unmarshal
+	// defaultClient is used by the package level request functions,
+	// the timeout is set to one minute
+	defaultClient = NewClient(WithTimeout(time.Minute))
 )
 
-// SetJSONMarshal set json marshal function
-func SetJSONMarshal(fn JSONMarshal) {
-	jsonMarshal = fn
+func (conf *Config) marshalJSON(v any) ([]byte, error) {
+	if conf.jsonMarshal != nil {
+		return conf.jsonMarshal(v)
+	}
+	return defaultJSONMarshal(v)
 }
 
-// SetJSONUnmarshal set json unmarshal function
-func SetJSONUnmarshal(fn JSONUnmarshal) {
-	jsonUnmarshal = fn
+func (conf *Config) unmarshalJSON(data []byte, v any) error {
+	if conf.jsonUnmarshal != nil {
+		return conf.jsonUnmarshal(data, v)
+	}
+	return defaultJSONUnmarshal(data, v)
 }
 
-// Request http request by default instance
-func Request(config *Config) (resp *Response, err error) {
-	return defaultIns.Request(config)
+// Default returns the default client
+func Default() *Client {
+	return defaultClient
 }
 
-// Get http get request by default instance
-func Get(url string, query ...url.Values) (resp *Response, err error) {
-	return defaultIns.Get(url, query...)
+// Do sends a http request with the config by default client
+func Do(ctx context.Context, config *Config) (*Response, error) {
+	return defaultClient.Do(ctx, config)
 }
 
-// Delete http delete request by default instance
-func Delete(url string, query ...url.Values) (resp *Response, err error) {
-	return defaultIns.Delete(url, query...)
+// Get sends a http get request by default client
+func Get(ctx context.Context, url string, opts ...RequestOption) (*Response, error) {
+	return defaultClient.Get(ctx, url, opts...)
 }
 
-// Head http head request by default instance
-func Head(url string, query ...url.Values) (resp *Response, err error) {
-	return defaultIns.Head(url, query...)
+// Delete sends a http delete request by default client
+func Delete(ctx context.Context, url string, opts ...RequestOption) (*Response, error) {
+	return defaultClient.Delete(ctx, url, opts...)
 }
 
-// Options http options request by default instance
-func Options(url string, query ...url.Values) (resp *Response, err error) {
-	return defaultIns.Options(url, query...)
+// Head sends a http head request by default client
+func Head(ctx context.Context, url string, opts ...RequestOption) (*Response, error) {
+	return defaultClient.Head(ctx, url, opts...)
 }
 
-// Post http post request by default instance
-func Post(url string, data interface{}, query ...url.Values) (resp *Response, err error) {
-	return defaultIns.Post(url, data, query...)
+// Options sends a http options request by default client
+func Options(ctx context.Context, url string, opts ...RequestOption) (*Response, error) {
+	return defaultClient.Options(ctx, url, opts...)
 }
 
-// Put http put request by default instance
-func Put(url string, data interface{}, query ...url.Values) (resp *Response, err error) {
-	return defaultIns.Put(url, data, query...)
+// Post sends a http post request by default client
+func Post(ctx context.Context, url string, body any, opts ...RequestOption) (*Response, error) {
+	return defaultClient.Post(ctx, url, body, opts...)
 }
 
-// Patch http patch request by default instance
-func Patch(url string, data interface{}, query ...url.Values) (resp *Response, err error) {
-	return defaultIns.Patch(url, data, query...)
+// Put sends a http put request by default client
+func Put(ctx context.Context, url string, body any, opts ...RequestOption) (*Response, error) {
+	return defaultClient.Put(ctx, url, body, opts...)
 }
 
-// Upload upload file by default instance
-func Upload(url string, file *multipartFile, query ...url.Values) (resp *Response, err error) {
-	return defaultIns.Upload(url, file, query...)
+// Patch sends a http patch request by default client
+func Patch(ctx context.Context, url string, body any, opts ...RequestOption) (*Response, error) {
+	return defaultClient.Patch(ctx, url, body, opts...)
 }
 
-// GetDefaultInstance get default instance
-func GetDefaultInstance() *Instance {
-	return defaultIns
+// Upload sends a http post request with multipart form by default client
+func Upload(ctx context.Context, url string, form *MultipartForm, opts ...RequestOption) (*Response, error) {
+	return defaultClient.Upload(ctx, url, form, opts...)
+}
+
+func toJSON[T any](resp *Response, err error) (*T, error) {
+	if err != nil {
+		return nil, err
+	}
+	result := new(T)
+	err = resp.JSON(result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func orDefault(c *Client) *Client {
+	if c == nil {
+		return defaultClient
+	}
+	return c
+}
+
+// DoJSON sends a http request with the config and unmarshals
+// the response to T. If the client is nil, the default client is used.
+func DoJSON[T any](ctx context.Context, c *Client, config *Config) (*T, error) {
+	return toJSON[T](orDefault(c).Do(ctx, config))
+}
+
+// GetJSON sends a http get request and unmarshals the response to T.
+// If the client is nil, the default client is used.
+func GetJSON[T any](ctx context.Context, c *Client, url string, opts ...RequestOption) (*T, error) {
+	return toJSON[T](orDefault(c).Get(ctx, url, opts...))
+}
+
+// DeleteJSON sends a http delete request and unmarshals the response to T.
+// If the client is nil, the default client is used.
+func DeleteJSON[T any](ctx context.Context, c *Client, url string, opts ...RequestOption) (*T, error) {
+	return toJSON[T](orDefault(c).Delete(ctx, url, opts...))
+}
+
+// PostJSON sends a http post request and unmarshals the response to T.
+// If the client is nil, the default client is used.
+func PostJSON[T any](ctx context.Context, c *Client, url string, body any, opts ...RequestOption) (*T, error) {
+	return toJSON[T](orDefault(c).Post(ctx, url, body, opts...))
+}
+
+// PutJSON sends a http put request and unmarshals the response to T.
+// If the client is nil, the default client is used.
+func PutJSON[T any](ctx context.Context, c *Client, url string, body any, opts ...RequestOption) (*T, error) {
+	return toJSON[T](orDefault(c).Put(ctx, url, body, opts...))
+}
+
+// PatchJSON sends a http patch request and unmarshals the response to T.
+// If the client is nil, the default client is used.
+func PatchJSON[T any](ctx context.Context, c *Client, url string, body any, opts ...RequestOption) (*T, error) {
+	return toJSON[T](orDefault(c).Patch(ctx, url, body, opts...))
+}
+
+// UploadJSON sends a http post request with multipart form and unmarshals
+// the response to T. If the client is nil, the default client is used.
+func UploadJSON[T any](ctx context.Context, c *Client, url string, form *MultipartForm, opts ...RequestOption) (*T, error) {
+	return toJSON[T](orDefault(c).Upload(ctx, url, form, opts...))
 }
 
 // GetInternalErrorCategory get the category of net op error
@@ -227,7 +288,6 @@ func GetStats(conf *Config, err error) (stats Stats) {
 		stats.Addr = ht.Addr
 		stats.DNSCoalesced = ht.DNSCoalesced
 		timelineStats := ht.Stats()
-		fmt.Println(timelineStats)
 		stats.Use = ceilToMs(timelineStats.Total)
 
 		stats.DNSUse = ceilToMs(timelineStats.DNSLookup)
@@ -236,7 +296,6 @@ func GetStats(conf *Config, err error) (stats Stats) {
 		stats.RequestSendUse = ceilToMs(timelineStats.RequestSend)
 		stats.ServerProcessingUse = ceilToMs(timelineStats.ServerProcessing)
 		stats.ContentTransferUse = ceilToMs(timelineStats.ContentTransfer)
-
 	}
 	return stats
 }

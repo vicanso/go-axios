@@ -36,4 +36,13 @@ func TestResponse(t *testing.T) {
 		err = resp.JSON(&result)
 		assert.NotNil(err)
 	})
+
+	t.Run("ok", func(t *testing.T) {
+		assert := assert.New(t)
+		assert.False((&Response{Status: 199}).OK())
+		assert.True((&Response{Status: 200}).OK())
+		assert.True((&Response{Status: 299}).OK())
+		assert.False((&Response{Status: 400}).OK())
+		assert.False((&Response{Status: 500}).OK())
+	})
 }

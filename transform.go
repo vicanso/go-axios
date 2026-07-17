@@ -27,15 +27,15 @@ import (
 
 type (
 	// TransformResponse transform function for http response
-	TransformResponse func(body []byte, headers http.Header) (data []byte, err error)
+	TransformResponse func(config *Config, body []byte, headers http.Header) (data []byte, err error)
 	// TransformRequest transform function for http request
-	TransformRequest func(body interface{}, headers http.Header) (data interface{}, err error)
+	TransformRequest func(config *Config, body any) (data any, err error)
 
 	newReader func(io.Reader) (io.Reader, error)
 )
 
 func createEncodingTransform(encoding string, fn newReader) TransformResponse {
-	return func(body []byte, headers http.Header) (data []byte, err error) {
+	return func(_ *Config, body []byte, headers http.Header) (data []byte, err error) {
 		// 判断数据的encoding，如果不相等，直接返回
 		if !strings.EqualFold(headers.Get(headerContentEncoding), encoding) {
 			return body, nil
@@ -70,7 +70,7 @@ func setContentTypeIfUnset(headers http.Header, value string) {
 	}
 }
 
-func convertRequestBody(data interface{}, headers http.Header) (body interface{}, err error) {
+func convertRequestBody(config *Config, data any) (body any, err error) {
 	// 如果是io reader，则不处理
 	if _, ok := data.(io.Reader); ok {
 		return data, nil
@@ -84,21 +84,23 @@ func convertRequestBody(data interface{}, headers http.Header) (body interface{}
 	case url.Values:
 		v := data
 		body = []byte(v.Encode())
-		setContentTypeIfUnset(headers, contentTypeWWWFormUrlencoded)
+		setContentTypeIfUnset(config.Headers, contentTypeWWWFormUrlencoded)
 	default:
-		body, err = jsonMarshal(data)
+		body, err = config.marshalJSON(data)
 		// 如果成功转换
 		if err == nil {
-			setContentTypeIfUnset(headers, contentTypeJSON)
+			setContentTypeIfUnset(config.Headers, contentTypeJSON)
 		}
 	}
 	return
 }
 
 var (
-	// DefaultTransformResponse default transform response
+	// DefaultTransformResponse default transform response,
+	// it supports gzip and br encoding
 	DefaultTransformResponse []TransformResponse
-	// DefaultTransformRequest default transform request
+	// DefaultTransformRequest default transform request,
+	// it converts body to bytes and sets the content type
 	DefaultTransformRequest []TransformRequest
 )
 

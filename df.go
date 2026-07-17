@@ -16,15 +16,17 @@ package axios
 
 const (
 	// UserAgent client user agent
-	UserAgent = "go-axios/1.2.1"
+	UserAgent = "go-axios/2.0.0"
 
 	headerUserAgent       = "User-Agent"
+	headerAccept          = "Accept"
 	headerAcceptEncoding  = "Accept-Encoding"
 	headerContentEncoding = "Content-Encoding"
 	headerContentLength   = "Content-Length"
 	headerContentType     = "Content-Type"
 
 	defaultAcceptEncoding = "gzip, br"
+	defaultAccept         = "application/json, text/plain, */*"
 	brEncoding            = "br"
 	gzipEncoding          = "gzip"
 

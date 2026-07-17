@@ -16,7 +16,6 @@ package axios
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net"
 	"net/url"
@@ -30,60 +29,105 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSetJSONMarshal(t *testing.T) {
-	marshal := func(v interface{}) ([]byte, error) {
-		return json.Marshal(v)
-	}
-	unmarshal := func(data []byte, v interface{}) error {
-		return json.Unmarshal(data, v)
-	}
-	SetJSONMarshal(marshal)
-	SetJSONUnmarshal(unmarshal)
-}
-
-func TestDefaultInstance(t *testing.T) {
+func TestDefaultClient(t *testing.T) {
 	assert := assert.New(t)
-	ins := GetDefaultInstance()
-	original := ins.Config.Adapter
-	defer func() {
-		ins.Config.Adapter = original
-	}()
-	ins.Config.Adapter = func(conf *Config) (*Response, error) {
+	done := Default().CustomMock(func(conf *Config) (*Response, error) {
 		return &Response{
-			Config: conf,
+			Status: 200,
 		}, nil
-	}
-	resp, err := Request(&Config{})
+	})
+	defer done()
+	ctx := context.Background()
+
+	resp, err := Do(ctx, &Config{
+		URL: "/",
+	})
 	assert.Nil(err)
 	assert.Equal("GET", resp.Config.Method)
 
-	resp, err = Get("/")
+	resp, err = Get(ctx, "/")
 	assert.Nil(err)
 	assert.Equal("GET", resp.Config.Method)
 
-	resp, err = Delete("/")
+	resp, err = Delete(ctx, "/")
 	assert.Nil(err)
 	assert.Equal("DELETE", resp.Config.Method)
 
-	resp, err = Head("/")
+	resp, err = Head(ctx, "/")
 	assert.Nil(err)
 	assert.Equal("HEAD", resp.Config.Method)
 
-	resp, err = Options("/")
+	resp, err = Options(ctx, "/")
 	assert.Nil(err)
 	assert.Equal("OPTIONS", resp.Config.Method)
 
-	resp, err = Post("/", nil)
+	resp, err = Post(ctx, "/", nil)
 	assert.Nil(err)
 	assert.Equal("POST", resp.Config.Method)
 
-	resp, err = Put("/", nil)
+	resp, err = Put(ctx, "/", nil)
 	assert.Nil(err)
 	assert.Equal("PUT", resp.Config.Method)
 
-	resp, err = Patch("/", nil)
+	resp, err = Patch(ctx, "/", nil)
 	assert.Nil(err)
 	assert.Equal("PATCH", resp.Config.Method)
+
+	form := NewMultipartForm()
+	err = form.AddField("type", "vip")
+	assert.Nil(err)
+	resp, err = Upload(ctx, "/", form)
+	assert.Nil(err)
+	assert.Equal("POST", resp.Config.Method)
+}
+
+type userInfo struct {
+	Account string `json:"account"`
+}
+
+func TestJSONRequests(t *testing.T) {
+	assert := assert.New(t)
+	done := Default().CustomMock(func(conf *Config) (*Response, error) {
+		return &Response{
+			Status: 200,
+			Data:   []byte(`{"account":"tree"}`),
+		}, nil
+	})
+	defer done()
+	ctx := context.Background()
+
+	user, err := GetJSON[userInfo](ctx, nil, "/")
+	assert.Nil(err)
+	assert.Equal("tree", user.Account)
+
+	user, err = DeleteJSON[userInfo](ctx, nil, "/")
+	assert.Nil(err)
+	assert.Equal("tree", user.Account)
+
+	user, err = PostJSON[userInfo](ctx, nil, "/", map[string]string{"a": "1"})
+	assert.Nil(err)
+	assert.Equal("tree", user.Account)
+
+	user, err = PutJSON[userInfo](ctx, nil, "/", nil)
+	assert.Nil(err)
+	assert.Equal("tree", user.Account)
+
+	user, err = PatchJSON[userInfo](ctx, nil, "/", nil)
+	assert.Nil(err)
+	assert.Equal("tree", user.Account)
+
+	user, err = DoJSON[userInfo](ctx, nil, &Config{
+		URL: "/",
+	})
+	assert.Nil(err)
+	assert.Equal("tree", user.Account)
+
+	form := NewMultipartForm()
+	err = form.AddField("type", "vip")
+	assert.Nil(err)
+	user, err = UploadJSON[userInfo](ctx, nil, "/", form)
+	assert.Nil(err)
+	assert.Equal("tree", user.Account)
 }
 
 type timeoutErr struct {

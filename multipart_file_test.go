@@ -20,23 +20,37 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMultipartFile(t *testing.T) {
+func TestMultipartForm(t *testing.T) {
 	assert := assert.New(t)
 
-	mf := NewMultipartFile()
-	_ = mf.writer.SetBoundary("abc")
+	form := NewMultipartForm()
+	_ = form.writer.SetBoundary("abc")
 
-	err := mf.AddFile("file", "test.go", []byte("Hello World!"))
+	err := form.AddFile("file", "test.go", []byte("Hello World!"))
 	assert.Nil(err)
 
-	err = mf.AddFields(map[string]string{
+	err = form.AddFields(map[string]string{
 		"type": "vip",
 	})
 	assert.Nil(err)
 
-	assert.Equal("multipart/form-data; boundary=abc", mf.FormDataContentType())
+	assert.Equal("multipart/form-data; boundary=abc", form.FormDataContentType())
 
-	data, err := mf.Bytes()
+	data, err := form.Bytes()
 	assert.Nil(err)
 	assert.Equal("--abc\r\nContent-Disposition: form-data; name=\"file\"; filename=\"test.go\"\r\nContent-Type: application/octet-stream\r\n\r\nHello World!\r\n--abc\r\nContent-Disposition: form-data; name=\"type\"\r\n\r\nvip\r\n--abc--\r\n", string(data))
+}
+
+func TestMultipartFormAddField(t *testing.T) {
+	assert := assert.New(t)
+
+	form := NewMultipartForm()
+	_ = form.writer.SetBoundary("abc")
+
+	err := form.AddField("type", "vip")
+	assert.Nil(err)
+
+	data, err := form.Bytes()
+	assert.Nil(err)
+	assert.Equal("--abc\r\nContent-Disposition: form-data; name=\"type\"\r\n\r\nvip\r\n--abc--\r\n", string(data))
 }

@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -34,15 +35,6 @@ func TestURLJoin(t *testing.T) {
 	assert.Equal("http://aslant.site/users/me", urlJoin("http://aslant.site", "/users/me"))
 	assert.Equal("http://aslant.site/users/me", urlJoin("http://aslant.site/", "users/me"))
 	assert.Equal("http://aslant.site/users/me", urlJoin("http://aslant.site", "users/me"))
-}
-
-func TestIsNeedToTransformRequestBody(t *testing.T) {
-	assert := assert.New(t)
-
-	assert.True(isNeedToTransformRequestBody("POST"))
-	assert.True(isNeedToTransformRequestBody("PATCH"))
-	assert.True(isNeedToTransformRequestBody("PUT"))
-	assert.False(isNeedToTransformRequestBody("GET"))
 }
 
 func TestConfig(t *testing.T) {
@@ -76,6 +68,39 @@ func TestConfig(t *testing.T) {
 	paramValue := "2"
 	config.AddParam(paramKey, paramValue)
 	assert.Equal(paramValue, config.Params[paramKey])
+}
+
+func TestRequestOptions(t *testing.T) {
+	assert := assert.New(t)
+	config := &Config{}
+	opts := []RequestOption{
+		Query("a", "1"),
+		QueryValues(url.Values{
+			"b": {"2"},
+		}),
+		QueryMap(map[string]string{
+			"c": "3",
+		}),
+		Param("type", "vip"),
+		Header("X-Token", "abc"),
+		Timeout(time.Second),
+		Route("/users/:type"),
+		Body("data"),
+		EnableTrace(),
+	}
+	for _, opt := range opts {
+		opt(config)
+	}
+
+	assert.Equal("1", config.Query.Get("a"))
+	assert.Equal("2", config.Query.Get("b"))
+	assert.Equal("3", config.Query.Get("c"))
+	assert.Equal("vip", config.Params["type"])
+	assert.Equal("abc", config.Headers.Get("X-Token"))
+	assert.Equal(time.Second, config.Timeout)
+	assert.Equal("/users/:type", config.Route)
+	assert.Equal("data", config.Body)
+	assert.True(config.enableTrace)
 }
 
 func TestAddQuery(t *testing.T) {
@@ -128,6 +153,15 @@ func TestAddParam(t *testing.T) {
 	config := &Config{}
 	config.AddParam("a", "1")
 	assert.Equal("1", config.Params["a"])
+}
+
+func TestGetURLEscapeParam(t *testing.T) {
+	assert := assert.New(t)
+	config := &Config{
+		URL: "/users/:type",
+	}
+	config.AddParam("type", "a b")
+	assert.Equal("/users/a%20b", config.GetURL())
 }
 
 func TestGetRequestBody(t *testing.T) {
@@ -198,48 +232,4 @@ func TestCURL(t *testing.T) {
 		Query: query,
 	}
 	assert.Equal(`curl -XGET 'http://test.com/users/vip?a=1&a=2'`, conf.CURL())
-
-}
-
-func TestBaseConfig(t *testing.T) {
-	assert := assert.New(t)
-
-	bc := baseConfig{}
-
-	assert.Empty(bc.onBeforeNewRequests)
-	// add
-	bc.AddBeforeNewRequestListener(func(config *Config) (err error) {
-		return nil
-	})
-	assert.Equal(1, len(bc.onBeforeNewRequests))
-
-	onBeforeNewRequests := bc.onBeforeNewRequests
-	// prepend
-	bc.PrependBeforeNewRequestListener(func(config *Config) (err error) {
-		return nil
-	})
-	assert.Equal(1, len(onBeforeNewRequests))
-	assert.Equal(2, len(bc.onBeforeNewRequests))
-
-	assert.Empty(bc.onErrors)
-	bc.AddErrorListener(func(err error, config *Config) (newErr error) {
-		return nil
-	})
-	assert.Equal(1, len(bc.onErrors))
-	onErrors := bc.onErrors
-	bc.PrependErrorListener(func(err error, config *Config) (newErr error) {
-		return nil
-	})
-	assert.Equal(1, len(onErrors))
-	assert.Equal(2, len(bc.onErrors))
-
-	assert.Empty(bc.onDones)
-	bc.AddDoneListener(func(config *Config, resp *Response, err error) {
-	})
-	assert.Equal(1, len(bc.onDones))
-	onDones := bc.onDones
-	bc.PrependDoneListener(func(config *Config, resp *Response, err error) {
-	})
-	assert.Equal(1, len(onDones))
-	assert.Equal(2, len(bc.onDones))
 }

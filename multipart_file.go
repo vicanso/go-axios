@@ -19,25 +19,27 @@ import (
 	"mime/multipart"
 )
 
-type multipartFile struct {
+// MultipartForm is a writer of multipart form,
+// it's used for uploading file
+type MultipartForm struct {
 	data   *bytes.Buffer
 	writer *multipart.Writer
 }
 
-// NewMultipartFile creates a multipart file writer
-func NewMultipartFile() *multipartFile {
+// NewMultipartForm creates a multipart form writer
+func NewMultipartForm() *MultipartForm {
 	// 初始化容量较大的buffer
 	// 用于文件上传
 	buf := make([]byte, 0, 100*1024)
 	b := bytes.NewBuffer(buf)
-	return &multipartFile{
+	return &MultipartForm{
 		data:   b,
 		writer: multipart.NewWriter(b),
 	}
 }
 
-// AddFile adds file to writer
-func (m *multipartFile) AddFile(field, filename string, data []byte) error {
+// AddFile adds a file to the form
+func (m *MultipartForm) AddFile(field, filename string, data []byte) error {
 	w, err := m.writer.CreateFormFile(field, filename)
 	if err != nil {
 		return err
@@ -49,8 +51,13 @@ func (m *multipartFile) AddFile(field, filename string, data []byte) error {
 	return nil
 }
 
-// AddFields adds fields to writer
-func (m *multipartFile) AddFields(fields map[string]string) error {
+// AddField adds a field to the form
+func (m *MultipartForm) AddField(field, value string) error {
+	return m.writer.WriteField(field, value)
+}
+
+// AddFields adds fields to the form
+func (m *MultipartForm) AddFields(fields map[string]string) error {
 	for k, v := range fields {
 		err := m.writer.WriteField(k, v)
 		if err != nil {
@@ -60,13 +67,13 @@ func (m *multipartFile) AddFields(fields map[string]string) error {
 	return nil
 }
 
-// FormDataContentType returns content type
-func (m *multipartFile) FormDataContentType() string {
+// FormDataContentType returns the content type of the form
+func (m *MultipartForm) FormDataContentType() string {
 	return m.writer.FormDataContentType()
 }
 
-// Bytes returns bytes
-func (m *multipartFile) Bytes() ([]byte, error) {
+// Bytes closes the writer and returns the bytes of the form
+func (m *MultipartForm) Bytes() ([]byte, error) {
 	err := m.writer.Close()
 	if err != nil {
 		return nil, err

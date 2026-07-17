@@ -1,10 +1,10 @@
-module github.com/vicanso/go-axios
+module github.com/vicanso/go-axios/v2
 
-go 1.17
+go 1.22
 
 require (
-	github.com/andybalholm/brotli v1.1.1
-	github.com/stretchr/testify v1.9.0
+	github.com/andybalholm/brotli v1.2.2
+	github.com/stretchr/testify v1.11.1
 	github.com/vicanso/http-trace v1.2.0
 	gopkg.in/h2non/gock.v1 v1.1.2
 )

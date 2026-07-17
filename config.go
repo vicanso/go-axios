@@ -30,32 +30,32 @@ import (
 	HT "github.com/vicanso/http-trace"
 )
 
-type baseConfig struct {
-	onErrors            ErrorListeners
-	onDones             DoneListeners
-	onBeforeNewRequests BeforeNewRequestListeners
-}
-
 type (
-	// OnError on error function
-	OnError        func(err error, config *Config) (newErr error)
-	ErrorListeners []OnError
-	// OnDone on done event
-	OnDone        func(config *Config, resp *Response, err error)
-	DoneListeners []OnDone
-	// OnBeforeNewRequest on request create event
-	OnBeforeNewRequest        func(config *Config) (err error)
-	BeforeNewRequestListeners []OnBeforeNewRequest
-	// Config http request config
+	// RequestInterceptor is called after the http request is created
+	// and before it is sent, it can modify the request.
+	RequestInterceptor func(config *Config) (err error)
+	// ResponseInterceptor is called after the response is received
+	// and transformed, it can modify the response.
+	ResponseInterceptor func(resp *Response) (err error)
+	// OnError is called when the request fails, it can replace the
+	// error by returning a new one.
+	OnError func(err error, config *Config) (newErr error)
+	// OnDone is called when the request is done, whether it succeeds or fails.
+	OnDone func(config *Config, resp *Response, err error)
+	// OnBeforeRequest is called before the http request is created.
+	// If it sets config.Response, the request will not be sent and
+	// the response is returned directly.
+	OnBeforeRequest func(config *Config) (err error)
+
+	// Config is the config of a single http request.
 	Config struct {
-		baseConfig
 		Request  *http.Request
 		Response *Response
-		// Route the request route
+		// Route the request route, default is the path of URL
 		Route string
 		// URL the request url
 		URL string
-		// Method http request method, default is `get`
+		// Method http request method, default is `GET`
 		Method string
 		// BaseURL http request base url
 		BaseURL string
@@ -63,27 +63,26 @@ type (
 		TransformRequest []TransformRequest
 		// TransformResponse transform response body
 		TransformResponse []TransformResponse
-		// Headers  custom headers for request
+		// Headers custom headers for request
 		Headers http.Header
-		// Params params for request route
+		// Params params for the request route, `:key` in url will be
+		// replaced by the url escaped value
 		Params map[string]string
 		// Query query for request
 		Query url.Values
 
 		// Body the request body
-		Body interface{}
+		Body any
 
-		// Concurrency current amount handling request of instance
-		Concurrency uint32
+		// Concurrency the amount of handling request of the client
+		// when this request is sent
+		Concurrency int32
 
 		// Timeout request timeout
 		Timeout time.Duration
 
-		// Context context
-		Context context.Context
-
-		// Client http client
-		Client *http.Client
+		// HTTPClient http client to send the request
+		HTTPClient *http.Client
 		// Adapter custom handling of request
 		Adapter Adapter
 		// RequestInterceptors request interceptor list
@@ -91,170 +90,146 @@ type (
 		// ResponseInterceptors response interceptor list
 		ResponseInterceptors []ResponseInterceptor
 
-		// OnError on error function
-		OnError OnError
-		// OnDone on done event
-		OnDone OnDone
-		// OnBeforeNewRequest on request create event
-		OnBeforeNewRequest OnBeforeNewRequest
+		// OnError error listener list
+		OnError []OnError
+		// OnDone done listener list
+		OnDone []OnDone
+		// OnBeforeRequest before request listener list
+		OnBeforeRequest []OnBeforeRequest
 
-		HTTPTrace   *HT.HTTPTrace
-		enableTrace bool
-		data        map[string]interface{}
+		// HTTPTrace the trace info of request,
+		// it's not nil when trace is enabled
+		HTTPTrace *HT.HTTPTrace
+
+		enableTrace   bool
+		ctx           context.Context
+		jsonMarshal   JSONMarshal
+		jsonUnmarshal JSONUnmarshal
+		values        map[string]any
 	}
-	// InstanceConfig config of instance
-	InstanceConfig struct {
-		baseConfig
-		// BaseURL http request base url
-		BaseURL string
-		// TransformRequest transform request body
-		TransformRequest []TransformRequest
-		// TransformResponse transform response body
-		TransformResponse []TransformResponse
-		// Headers  custom headers for request
-		Headers http.Header
-		// Timeout request timeout
-		Timeout time.Duration
 
-		// Client http client
-		Client *http.Client
-		// Adapter custom adapter
-		Adapter Adapter
-		// MaxConcurrency max concurrency for instance
-		// If lt 0, all request will be fail
-		MaxConcurrency int32
-
-		// RequestInterceptors request interceptor list
-		RequestInterceptors []RequestInterceptor
-		// ResponseInterceptors response interceptor list
-		ResponseInterceptors []ResponseInterceptor
-
-		// EnableTrace enable http trace
-		EnableTrace bool
-		// OnError on error function
-		OnError OnError
-		// OnDone on done event
-		OnDone OnDone
-		// OnBeforeNewRequest on request create event
-		OnBeforeNewRequest OnBeforeNewRequest
-	}
+	// RequestOption sets an option of request config
+	RequestOption func(config *Config)
 )
 
 var ErrRequestDataTypeInvalid = errors.New("request data type is not supported")
 var ErrRequestIsForbidden = errors.New("request is forbidden")
 
-func (bc *baseConfig) AddErrorListener(listeners ...OnError) {
-	bc.onErrors = append(bc.onErrors, listeners...)
-}
-
-func (bc *baseConfig) PrependErrorListener(listeners ...OnError) {
-	bc.onErrors = append(listeners, bc.onErrors...)
-}
-
-func (bc *baseConfig) AddDoneListener(listeners ...OnDone) {
-	bc.onDones = append(bc.onDones, listeners...)
-}
-func (bc *baseConfig) PrependDoneListener(listeners ...OnDone) {
-	bc.onDones = append(listeners, bc.onDones...)
-}
-
-func (bc *baseConfig) AddBeforeNewRequestListener(listeners ...OnBeforeNewRequest) {
-	bc.onBeforeNewRequests = append(bc.onBeforeNewRequests, listeners...)
-}
-
-func (bc *baseConfig) PrependBeforeNewRequestListener(listeners ...OnBeforeNewRequest) {
-	bc.onBeforeNewRequests = append(listeners, bc.onBeforeNewRequests...)
-}
-
-func (conf *Config) doBeforeNewRequest() error {
-	fns := conf.onBeforeNewRequests
-	if conf.OnBeforeNewRequest != nil {
-		fns = append([]OnBeforeNewRequest{
-			conf.OnBeforeNewRequest,
-		}, fns...)
+// Query returns a request option that adds a query value
+func Query(key, value string) RequestOption {
+	return func(config *Config) {
+		config.AddQuery(key, value)
 	}
-	for _, fn := range fns {
-		err := fn(conf)
-		if err != nil {
-			return err
+}
+
+// QueryValues returns a request option that adds all query values
+func QueryValues(query url.Values) RequestOption {
+	return func(config *Config) {
+		for key, values := range query {
+			for _, value := range values {
+				config.AddQuery(key, value)
+			}
 		}
 	}
-	return nil
 }
 
-func (conf *Config) doError(originalErr error) error {
-	fns := conf.onErrors
-	if conf.OnError != nil {
-		fns = append([]OnError{
-			conf.OnError,
-		}, fns...)
+// QueryMap returns a request option that adds all values of map to query
+func QueryMap(query map[string]string) RequestOption {
+	return func(config *Config) {
+		config.AddQueryMap(query)
 	}
-	for _, fn := range fns {
-		err := fn(originalErr, conf)
-		if err != nil {
-			return err
+}
+
+// Param returns a request option that sets a route param,
+// `:key` in url will be replaced by the url escaped value
+func Param(key, value string) RequestOption {
+	return func(config *Config) {
+		config.AddParam(key, value)
+	}
+}
+
+// Header returns a request option that adds a http request header
+func Header(key, value string) RequestOption {
+	return func(config *Config) {
+		if config.Headers == nil {
+			config.Headers = make(http.Header)
 		}
-	}
-	return nil
-}
-
-func (conf *Config) doDone(resp *Response, err error) {
-	fns := conf.onDones
-	if conf.OnDone != nil {
-		fns = append([]OnDone{
-			conf.OnDone,
-		}, fns...)
-	}
-	for _, fn := range fns {
-		fn(conf, resp, err)
+		config.Headers.Add(key, value)
 	}
 }
 
-// Get get value from config
-func (conf *Config) Get(key string) interface{} {
-	if conf.data == nil {
+// Timeout returns a request option that sets the timeout of request
+func Timeout(d time.Duration) RequestOption {
+	return func(config *Config) {
+		config.Timeout = d
+	}
+}
+
+// Route returns a request option that sets the route of request,
+// it's used for stats and multi mock
+func Route(route string) RequestOption {
+	return func(config *Config) {
+		config.Route = route
+	}
+}
+
+// Body returns a request option that sets the request body
+func Body(body any) RequestOption {
+	return func(config *Config) {
+		config.Body = body
+	}
+}
+
+// EnableTrace returns a request option that enables http trace of request
+func EnableTrace() RequestOption {
+	return func(config *Config) {
+		config.enableTrace = true
+	}
+}
+
+// Context returns the context of request config
+func (conf *Config) Context() context.Context {
+	if conf.ctx == nil {
+		return context.Background()
+	}
+	return conf.ctx
+}
+
+// Get gets value from config
+func (conf *Config) Get(key string) any {
+	if conf.values == nil {
 		return nil
 	}
-	return conf.data[key]
+	return conf.values[key]
 }
 
-// Set set value to config
-func (conf *Config) Set(key string, value interface{}) {
-	if conf.data == nil {
-		conf.data = make(map[string]interface{})
+// Set sets value to config, it's a simple way to pass value
+// between interceptors and listeners
+func (conf *Config) Set(key string, value any) {
+	if conf.values == nil {
+		conf.values = make(map[string]any)
 	}
-	conf.data[key] = value
+	conf.values[key] = value
 }
 
-// GetString get string value
+// GetString gets string value from config
 func (conf *Config) GetString(key string) string {
-	v := conf.Get(key)
-	if v == nil {
-		return ""
-	}
-	str, _ := v.(string)
+	str, _ := conf.Get(key).(string)
 	return str
 }
 
-// GetBool get bool value
+// GetBool gets bool value from config
 func (conf *Config) GetBool(key string) bool {
-	v := conf.Get(key)
-	if v == nil {
-		return false
-	}
-	b, _ := v.(bool)
+	b, _ := conf.Get(key).(bool)
 	return b
 }
 
-// GetInt get int value
+// GetInt gets int value from config
 func (conf *Config) GetInt(key string) int {
-	v := conf.Get(key)
-	if v == nil {
-		return 0
-	}
-	i, _ := v.(int)
+	i, _ := conf.Get(key).(int)
 	return i
 }
+
 func getTag(sf reflect.StructField) string {
 	tag := sf.Tag.Get("json")
 	if tag != "" {
@@ -267,9 +242,9 @@ func getTag(sf reflect.StructField) string {
 	return sf.Name
 }
 
-func structToMapString(value interface{}) (map[string]string, error) {
+func structToMapString(value any) (map[string]string, error) {
 	v := reflect.ValueOf(value)
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 	t := v.Type()
@@ -308,7 +283,7 @@ func structToMapString(value interface{}) (map[string]string, error) {
 	return m, nil
 }
 
-// AddQueryMap convert map and add to query
+// AddQueryMap converts map and adds to query
 func (conf *Config) AddQueryMap(query map[string]string) *Config {
 	for key, value := range query {
 		conf.AddQuery(key, value)
@@ -316,8 +291,8 @@ func (conf *Config) AddQueryMap(query map[string]string) *Config {
 	return conf
 }
 
-// AddQueryStruct convert struct and add to query
-func (conf *Config) AddQueryStruct(value interface{}) (*Config, error) {
+// AddQueryStruct converts struct and adds to query
+func (conf *Config) AddQueryStruct(value any) (*Config, error) {
 	m, err := structToMapString(value)
 	if err != nil {
 		return conf, err
@@ -326,7 +301,7 @@ func (conf *Config) AddQueryStruct(value interface{}) (*Config, error) {
 	return conf, nil
 }
 
-// AddQuery add query
+// AddQuery adds query to config
 func (conf *Config) AddQuery(key, value string) *Config {
 	if conf.Query == nil {
 		conf.Query = make(url.Values)
@@ -335,7 +310,7 @@ func (conf *Config) AddQuery(key, value string) *Config {
 	return conf
 }
 
-// AddParam add param
+// AddParam adds route param to config
 func (conf *Config) AddParam(key, value string) *Config {
 	if conf.Params == nil {
 		conf.Params = make(map[string]string)
@@ -343,6 +318,7 @@ func (conf *Config) AddParam(key, value string) *Config {
 	conf.Params[key] = value
 	return conf
 }
+
 func urlJoin(basicURL, url string) string {
 	if basicURL == "" ||
 		strings.HasPrefix(url, "http://") ||
@@ -358,48 +334,34 @@ func urlJoin(basicURL, url string) string {
 	return basicURL + url
 }
 
-// GetURL generate the url of request config
+// GetURL generates the url of request config
 func (conf *Config) GetURL() string {
-	url := urlJoin(conf.BaseURL, conf.URL)
+	requestURL := urlJoin(conf.BaseURL, conf.URL)
 	if conf.Params != nil {
 		for key, value := range conf.Params {
-			url = strings.ReplaceAll(url, ":"+key, value)
+			requestURL = strings.ReplaceAll(requestURL, ":"+key, url.PathEscape(value))
 		}
 	}
 
 	if conf.Query != nil {
-		if strings.Contains(url, "?") {
-			url += ("&" + conf.Query.Encode())
+		if strings.Contains(requestURL, "?") {
+			requestURL += ("&" + conf.Query.Encode())
 		} else {
-			url += ("?" + conf.Query.Encode())
+			requestURL += ("?" + conf.Query.Encode())
 		}
 	}
-	return url
+	return requestURL
 }
 
-var needToTransformMethods = []string{
-	http.MethodPost,
-	http.MethodPatch,
-	http.MethodPut,
-}
-
-func isNeedToTransformRequestBody(method string) bool {
-	for _, value := range needToTransformMethods {
-		if value == method {
-			return true
-		}
-	}
-	return false
-}
-
-// getRequestBody get request body
+// getRequestBody gets the request body,
+// the body will be converted by transform request functions
 func (conf *Config) getRequestBody() (r io.Reader, err error) {
-	if conf.Body == nil || !isNeedToTransformRequestBody(conf.Method) {
+	if conf.Body == nil {
 		return
 	}
 	data := conf.Body
 	for _, fn := range conf.TransformRequest {
-		buf, e := fn(data, conf.Headers)
+		buf, e := fn(conf, data)
 		if e != nil {
 			err = e
 			return
@@ -419,28 +381,28 @@ func (conf *Config) getRequestBody() (r io.Reader, err error) {
 	return
 }
 
-// CURL convert config to curl
+// CURL converts config to curl command
 func (conf *Config) CURL() string {
 	builder := new(strings.Builder)
 	method := conf.Method
 	if method == "" {
 		method = http.MethodGet
 	}
-	builder.WriteString(fmt.Sprintf("curl -X%s ", method))
+	fmt.Fprintf(builder, "curl -X%s ", method)
 
 	r, _ := conf.getRequestBody()
 	if r != nil {
 		buf, _ := io.ReadAll(r)
-		builder.WriteString(fmt.Sprintf(`-d '%s' `, strings.ReplaceAll(string(buf), "'", "\u0027")))
+		fmt.Fprintf(builder, `-d '%s' `, strings.ReplaceAll(string(buf), "'", `'\''`))
 	}
 
 	for key, values := range conf.Headers {
 		for _, value := range values {
-			builder.WriteString(fmt.Sprintf(`-H '%s:%s' `, key, value))
+			fmt.Fprintf(builder, `-H '%s:%s' `, key, value)
 		}
 	}
 
-	builder.WriteString(fmt.Sprintf(`'%s'`, conf.GetURL()))
+	fmt.Fprintf(builder, `'%s'`, conf.GetURL())
 
 	return builder.String()
 }

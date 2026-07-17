@@ -26,7 +26,8 @@ type (
 )
 
 // copy from io.ReadAll
-// ReadAll reads from r until an error or EOF and returns the data it read.
+// ReadAllInitCap reads from r until an error or EOF and returns the data it read,
+// the buffer is initialized with the init capacity.
 // A successful call returns err == nil, not err == EOF. Because ReadAll is
 // defined to read from src until EOF, it does not treat an EOF from Read
 // as an error to be reported.
@@ -52,11 +53,10 @@ func ReadAllInitCap(r io.Reader, initCap int) ([]byte, error) {
 }
 
 func defaultAdapter(config *Config) (resp *Response, err error) {
-
 	req := config.Request
 
 	// 发送请求
-	client := config.Client
+	client := config.HTTPClient
 	if client == nil {
 		client = http.DefaultClient
 	}
@@ -71,9 +71,11 @@ func defaultAdapter(config *Config) (resp *Response, err error) {
 		OriginalResponse: res,
 	}
 	// 读取数据
-	defer res.Body.Close()
+	defer func() {
+		_ = res.Body.Close()
+	}()
 	size := 0
-	contentLength := res.Header.Get("Content-Length")
+	contentLength := res.Header.Get(headerContentLength)
 	if contentLength != "" {
 		size, _ = strconv.Atoi(contentLength)
 	}

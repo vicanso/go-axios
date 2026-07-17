@@ -21,7 +21,7 @@ import (
 type (
 	// Response http response
 	Response struct {
-		UnmarshalData interface{}
+		UnmarshalData any
 		Data          []byte
 		Status        int
 		Headers       http.Header
@@ -32,11 +32,21 @@ type (
 	}
 )
 
-// JSON convert json data
-func (resp *Response) JSON(v interface{}) (err error) {
-	err = jsonUnmarshal(resp.Data, v)
+// JSON unmarshals the data of response to the value,
+// it uses the json unmarshal function of config if set
+func (resp *Response) JSON(v any) (err error) {
+	if resp.Config != nil {
+		err = resp.Config.unmarshalJSON(resp.Data, v)
+	} else {
+		err = defaultJSONUnmarshal(resp.Data, v)
+	}
 	if err == nil {
 		resp.UnmarshalData = v
 	}
 	return
+}
+
+// OK returns true if the status of response is 2xx
+func (resp *Response) OK() bool {
+	return resp.Status >= http.StatusOK && resp.Status < http.StatusMultipleChoices
 }
