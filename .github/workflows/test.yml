@@ -14,25 +14,28 @@ jobs:
     strategy:
       matrix:
         go:
+        # stable 始终为最新的 Go 稳定版
+        - 'stable'
+        - '1.25'
         - '1.24'
-        - '1.23'
-        - '1.22'
     steps:
 
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v7
     - name: Go ${{ matrix.go }} test
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version: ${{ matrix.go }}
 
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v4
-
-    - name: Get dependencies
-      run:
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin latest
-
+    # lint 只在最新版本上执行一次，使用官方 action（自带校验与缓存）
     - name: Lint
-      run: make lint
+      if: matrix.go == 'stable'
+      uses: golangci/golangci-lint-action@v9
+      with:
+        version: latest
 
     - name: Test
       run: make test
+
+    - name: Bench
+      run: make bench
